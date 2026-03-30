@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>地圖猜猜樂 - 3D 世界地理大挑戰</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- D3.js 核心庫 -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #020617;}
+        
+        svg { outline: none; }
+        
+        .overlay-screen {
+            position: fixed; inset: 0; background: rgba(2, 6, 23, 0.95);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999; backdrop-filter: blur(10px);
+        }
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid #3b82f6;
+            border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* 國家區塊互動效果 */
+        .country { transition: fill 0.3s, opacity 0.3s, stroke-width 0.3s; }
+        .country:hover { fill: #f8fafc !important; cursor: pointer; opacity: 1 !important; stroke: #1e293b; stroke-width: 1.5px; }
+
+        .flat-bg { background-color: #020617; }
+        
+        /* 探索模式文字樣式 (使用 paint-order 讓描邊不吃掉文字本身) */
+        .label-top {
+            fill: #fde047; /* 亮黃色 */
+            font-size: 13px;
+            font-weight: 900;
+            paint-order: stroke fill;
+            stroke: #000000;
+            stroke-width: 3.5px;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            text-anchor: middle;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .label-other {
+            fill: #cbd5e1; /* 灰白色 */
+            font-size: 8px;
+            font-weight: 600;
+            paint-order: stroke fill;
+            stroke: #0f172a;
+            stroke-width: 2px;
+            text-anchor: middle;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        
+        /* 自訂滾動條 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="text-slate-100">
+
+<!-- 返回主選單按鈕 (貼在 body 下方) -->
+<a href="index.html" style="position: fixed; top: 15px; left: 15px; z-index: 10000; background: rgba(15, 23, 42, 0.8); color: white; padding: 8px 16px; border-radius: 20px; text-decoration: none; font-weight: bold; font-family: sans-serif; backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+  <i class="fa-solid fa-arrow-left"></i> 回首頁
+</a>
+
+    <!-- 讀取畫面 -->
+    <div id="loading" class="overlay-screen text-white">
+        <div class="spinner mb-6"></div>
+        <h2 class="text-2xl font-black mb-2 tracking-wider">校正 3D 地球座標中...</h2>
+        <p id="loading-text" class="text-blue-400 font-medium text-sm">正在建立世界百大國題庫...</p>
+    </div>
+
+    <!-- 遊戲結束畫面 -->
+    <div id="game-over" class="overlay-screen hidden">
+        <div class="bg-slate-900 p-8 md:p-12 rounded-3xl shadow-2xl text-center max-w-lg w-[90%] border-t-8 border-blue-500 max-h-[90vh] overflow-y-auto">
+            <h2 class="text-4xl font-black text-white mb-2">挑戰結束！</h2>
+            <p class="text-slate-400 mb-6 font-medium">你完成了 10 個國家的探索</p>
+            
+            <div class="bg-slate-800 rounded-2xl p-6 mb-6 border border-slate-700">
+                <p class="text-sm text-blue-400 font-bold uppercase tracking-wider mb-1">最終總分</p>
+                <p class="text-6xl font-black text-blue-500"><span id="final-score">0</span><span class="text-2xl text-blue-800"> / 100</span></p>
+            </div>
+
+            <p id="rank-message" class="text-xl font-bold text-slate-200 mb-8">稱號：地理大師</p>
+
+            <div class="flex flex-col md:flex-row gap-4">
+                <button onclick="restartGame()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition transform hover:-translate-y-1 active:scale-95 text-lg border border-slate-600">
+                    再玩一次
+                </button>
+                <button onclick="enterExploreMode()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition transform hover:-translate-y-1 active:scale-95 text-lg">
+                    🗺️ 查看世界各國
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主排版：地圖 70% / 題目 30% (電腦版左題右圖) -->
+    <div class="flex flex-col md:flex-row-reverse h-screen w-screen overflow-hidden flat-bg">
+        
+        <!-- ================= 地圖區域 (強制佔 70%) ================= -->
+        <div id="map-container" class="relative w-full h-[70vh] md:h-screen md:w-[70vw] shrink-0 cursor-grab active:cursor-grabbing touch-none z-0 bg-slate-950">
+            
+            <div class="absolute top-4 left-4 z-50 flex gap-2 pointer-events-none">
+                <div class="bg-slate-800/90 backdrop-blur rounded-xl p-2 md:p-3 px-3 md:px-4 border border-slate-700 pointer-events-auto flex items-center gap-3 shadow-lg">
+                    <div class="text-center min-w-[35px] md:min-w-[40px]">
+                        <p class="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">總分</p>
+                        <p class="text-xl md:text-2xl font-black text-blue-400 leading-none" id="score-display">0</p>
+                    </div>
+                    <div class="w-px h-6 md:h-8 bg-slate-600"></div>
+                    <div class="text-center min-w-[35px] md:min-w-[40px]">
+                        <p class="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">進度</p>
+                        <p class="text-lg md:text-xl font-bold text-slate-200 leading-none"><span id="round-display">1</span><span class="text-[10px] md:text-sm text-slate-500">/10</span></p>
+                    </div>
+                </div>
+                <button onclick="zoomToWorld()" class="bg-slate-800/90 backdrop-blur shadow-lg rounded-xl p-3 pointer-events-auto hover:bg-slate-700 transition border border-slate-700 text-slate-300 hover:text-blue-400 flex items-center justify-center" title="重設視角至台灣">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path><path d="M2 12h20"></path></svg>
+                </button>
+            </div>
+            
+            <div class="absolute bottom-4 right-4 md:bottom-6 md:right-6 z-50 flex flex-col gap-2">
+                <button onclick="handleZoomIn()" class="bg-slate-800/90 backdrop-blur shadow-lg rounded-xl w-10 h-10 md:w-12 md:h-12 flex items-center justify-center hover:bg-slate-700 transition border border-slate-600 text-slate-300 hover:text-white text-xl md:text-2xl font-bold" title="放大">＋</button>
+                <button onclick="handleZoomOut()" class="bg-slate-800/90 backdrop-blur shadow-lg rounded-xl w-10 h-10 md:w-12 md:h-12 flex items-center justify-center hover:bg-slate-700 transition border border-slate-600 text-slate-300 hover:text-white text-xl md:text-2xl font-bold" title="縮小">－</button>
+            </div>
+        </div>
+
+        <!-- ================= 題目與資訊區域 (強制佔 30%，橫向在左側) ================= -->
+        <div class="w-full h-[30vh] md:h-screen md:w-[30vw] shrink-0 bg-slate-900 border-t md:border-t-0 md:border-r border-slate-800 flex flex-col z-10 shadow-2xl overflow-y-auto relative">
+            
+            <div class="flex flex-col items-center justify-center min-h-max p-4 md:p-6 w-full my-auto h-full relative">
+                
+                <!-- 1. 遊戲中的題目卡 -->
+                <div id="prompt-card" class="w-full flex flex-col items-center justify-center transition-all duration-300 py-2">
+                    <span id="difficulty-badge" class="px-3 py-1 bg-blue-900/50 text-blue-400 text-[10px] md:text-xs font-bold rounded-full mb-3 md:mb-5 border border-blue-800/50">常見國家</span>
+                    
+                    <div class="flex flex-row md:flex-col items-center justify-center gap-4 md:gap-0">
+                        <img id="target-flag" src="" alt="Flag" class="h-12 md:h-20 w-auto rounded shadow-lg border border-slate-700 md:mb-4 object-cover bg-slate-800">
+                        <div>
+                            <h2 id="target-name" class="text-xl md:text-3xl font-black text-white text-center tracking-wide">國家名稱</h2>
+                            <p class="text-[10px] md:text-xs text-slate-400 font-medium text-center mt-1 md:mt-2">點擊地圖位置<br class="hidden md:block"><span class="md:hidden"> </span>(可旋轉/縮放地圖)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 遊戲中的結果卡 -->
+                <div id="result-card" class="w-full flex flex-col items-center justify-center hidden transition-all duration-300 py-2 absolute inset-0 bg-slate-900 px-4">
+                    <p id="result-message" class="w-full text-center text-xs md:text-base text-slate-300 font-bold mb-1 mt-auto">詳細訊息</p>
+                    <p id="result-points" class="w-full text-center text-3xl md:text-4xl font-black mb-3 md:mb-6 text-green-400">+0 分</p>
+                    
+                    <div class="w-full flex flex-col gap-2 md:gap-3 mb-4 md:mb-8 max-w-[280px]">
+                        <div class="bg-slate-800 rounded-lg md:rounded-xl p-2 md:p-3 text-center border border-slate-700 w-full shadow-inner">
+                            <p class="font-bold text-green-500 text-[10px] md:text-xs mb-0.5">正確解答</p> 
+                            <p id="correct-continent" class="font-bold text-slate-200 text-sm md:text-base">亞洲</p>
+                        </div>
+                        <div id="user-guess-info" class="bg-slate-800 rounded-lg md:rounded-xl p-2 md:p-3 text-center border border-slate-700 hidden w-full shadow-inner">
+                            <p class="font-bold text-red-400 text-[10px] md:text-xs mb-0.5">你的選擇</p> 
+                            <p id="guess-name" class="font-bold text-slate-100 text-sm md:text-lg mb-0.5 leading-tight">點選的國家名稱</p>
+                            <p id="guess-continent" class="text-slate-400 text-[10px] md:text-xs">位於歐洲</p>
+                        </div>
+                    </div>
+
+                    <button id="next-btn" onclick="nextRound()" class="w-full max-w-[280px] bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 md:py-3.5 px-4 md:px-6 rounded-lg md:rounded-xl shadow-md transition transform hover:-translate-y-1 active:scale-95 text-sm md:text-base mb-auto">
+                        下一題
+                    </button>
+                </div>
+
+                <!-- 3. 世界探索模式卡 -->
+                <div id="explore-card" class="w-full flex flex-col items-center justify-center hidden transition-all duration-300 py-2 absolute inset-0 bg-slate-900 px-4">
+                    <h2 class="text-2xl md:text-3xl font-black text-white text-center tracking-wide mb-2 md:mb-4 mt-auto">探索模式</h2>
+                    <p class="text-xs md:text-sm text-slate-300 text-center mb-6">旋轉與縮放地球<br>地圖已標示各國中英文名稱</p>
+                    
+                    <div class="bg-slate-800 rounded-xl p-4 w-full max-w-[280px] mb-6 border border-slate-700 flex flex-col gap-3">
+                        <div class="flex items-center gap-3">
+                            <span class="w-4 h-4 rounded bg-yellow-300 border-2 border-black inline-block"></span> 
+                            <span class="text-slate-200 text-xs md:text-sm font-bold">世界百大國家 & 南極洲</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="w-4 h-4 rounded bg-slate-300 border-2 border-slate-900 inline-block"></span> 
+                            <span class="text-slate-400 text-xs md:text-sm font-bold">其他一般國家</span>
+                        </div>
+                    </div>
+
+                    <button onclick="restartGame()" class="w-full max-w-[280px] bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 md:py-3.5 px-4 md:px-6 rounded-lg md:rounded-xl shadow-md transition transform hover:-translate-y-1 active:scale-95 text-sm md:text-base mb-auto">
+                        退出探索，重新挑戰
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 使用者提供的世界前 100 名資料 ---
+        const top30 = [
+            { code: 'tw', name: '中華民國', en: 'Republic of China' }, { code: 'us', name: '美國', en: 'United States' }, { code: 'cn', name: '中國', en: 'China' },
+            { code: 'jp', name: '日本', en: 'Japan' }, { code: 'de', name: '德國', en: 'Germany' }, { code: 'gb', name: '英國', en: 'United Kingdom' },
+            { code: 'in', name: '印度', en: 'India' }, { code: 'fr', name: '法國', en: 'France' }, { code: 'it', name: '義大利', en: 'Italy' },
+            { code: 'ca', name: '加拿大', en: 'Canada' }, { code: 'kr', name: '韓國', en: 'South Korea' }, { code: 'ru', name: '俄羅斯', en: 'Russia' },
+            { code: 'au', name: '澳洲', en: 'Australia' }, { code: 'br', name: '巴西', en: 'Brazil' }, { code: 'es', name: '西班牙', en: 'Spain' },
+            { code: 'mx', name: '墨西哥', en: 'Mexico' }, { code: 'id', name: '印尼', en: 'Indonesia' }, { code: 'nl', name: '荷蘭', en: 'Netherlands' },
+            { code: 'sa', name: '沙烏地阿拉伯', en: 'Saudi Arabia' }, { code: 'tr', name: '土耳其', en: 'Turkey' }, { code: 'ch', name: '瑞士', en: 'Switzerland' },
+            { code: 'se', name: '瑞典', en: 'Sweden' }, { code: 'pl', name: '波蘭', en: 'Poland' }, { code: 'ar', name: '阿根廷', en: 'Argentina' },
+            { code: 'be', name: '比利時', en: 'Belgium' }, { code: 'th', name: '泰國', en: 'Thailand' }, { code: 'il', name: '以色列', en: 'Israel' },
+            { code: 'at', name: '奧地利', en: 'Austria' }, { code: 'ae', name: '阿拉伯聯合大公國', en: 'UAE' }, { code: 'za', name: '南非', en: 'South Africa' }
+        ];
+
+        const top31to70 = [
+            { code: 'dk', name: '丹麥', en: 'Denmark' }, { code: 'sg', name: '新加坡', en: 'Singapore' }, { code: 'my', name: '馬來西亞', en: 'Malaysia' },
+            { code: 'vn', name: '越南', en: 'Vietnam' }, { code: 'ph', name: '菲律賓', en: 'Philippines' }, { code: 'eg', name: '埃及', en: 'Egypt' },
+            { code: 'ng', name: '奈及利亞', en: 'Nigeria' }, { code: 'bd', name: '孟加拉', en: 'Bangladesh' }, { code: 'pk', name: '巴基斯坦', en: 'Pakistan' },
+            { code: 'ir', name: '伊朗', en: 'Iran' }, { code: 'co', name: '哥倫比亞', en: 'Colombia' }, { code: 'cl', name: '智利', en: 'Chile' },
+            { code: 'pe', name: '秘魯', en: 'Peru' }, { code: 'ro', name: '羅馬尼亞', en: 'Romania' }, { code: 'cz', name: '捷克', en: 'Czechia' },
+            { code: 'pt', name: '葡萄牙', en: 'Portugal' }, { code: 'nz', name: '紐西蘭', en: 'New Zealand' }, { code: 'gr', name: '希臘', en: 'Greece' },
+            { code: 'hu', name: '匈牙利', en: 'Hungary' }, { code: 'ua', name: '烏克蘭', en: 'Ukraine' }, { code: 'kz', name: '哈薩克', en: 'Kazakhstan' },
+            { code: 'qa', name: '卡達', en: 'Qatar' }, { code: 'ma', name: '摩洛哥', en: 'Morocco' }, { code: 'kw', name: '科威特', en: 'Kuwait' },
+            { code: 'sk', name: '斯洛伐克', en: 'Slovakia' }, { code: 'ec', name: '厄瓜多', en: 'Ecuador' }, { code: 'lk', name: '斯里蘭卡', en: 'Sri Lanka' },
+            { code: 'ke', name: '肯亞', en: 'Kenya' }, { code: 'et', name: '衣索比亞', en: 'Ethiopia' }, { code: 'dz', name: '阿爾及利亞', en: 'Algeria' },
+            { code: 'om', name: '阿曼', en: 'Oman' }, { code: 'uz', name: '烏茲別克', en: 'Uzbekistan' }, { code: 'gh', name: '迦納', en: 'Ghana' },
+            { code: 'ci', name: '象牙海岸', en: 'Ivory Coast' }, { code: 'mm', name: '緬甸', en: 'Myanmar' }, { code: 'sd', name: '蘇丹', en: 'Sudan' },
+            { code: 'iq', name: '伊拉克', en: 'Iraq' }, { code: 'sy', name: '敘利亞', en: 'Syria' }, { code: 'ye', name: '葉門', en: 'Yemen' },
+            { code: 'bg', name: '保加利亞', en: 'Bulgaria' }
+        ];
+
+        const top71to100 = [
+            { code: 'rs', name: '塞爾維亞', en: 'Serbia' }, { code: 'hr', name: '克羅埃西亞', en: 'Croatia' }, { code: 'si', name: '斯洛維尼亞', en: 'Slovenia' },
+            { code: 'lt', name: '立陶宛', en: 'Lithuania' }, { code: 'lv', name: '拉脫維亞', en: 'Latvia' }, { code: 'ee', name: '愛沙尼亞', en: 'Estonia' },
+            { code: 'cy', name: '賽普勒斯', en: 'Cyprus' }, { code: 'mt', name: '馬爾他', en: 'Malta' }, { code: 'is', name: '冰島', en: 'Iceland' },
+            { code: 'lu', name: '盧森堡', en: 'Luxembourg' }, { code: 'bh', name: '巴林', en: 'Bahrain' }, { code: 'bn', name: '汶萊', en: 'Brunei' },
+            { code: 'am', name: '亞美尼亞', en: 'Armenia' }, { code: 'ge', name: '喬治亞', en: 'Georgia' }, { code: 'az', name: '亞塞拜然', en: 'Azerbaijan' },
+            { code: 'cr', name: '哥斯大黎加', en: 'Costa Rica' }, { code: 'pa', name: '巴拿馬', en: 'Panama' }, { code: 'uy', name: '烏拉圭', en: 'Uruguay' },
+            { code: 'py', name: '巴拉圭', en: 'Paraguay' }, { code: 'bo', name: '玻利維亞', en: 'Bolivia' }, { code: 'do', name: '多明尼加', en: 'Dominican Republic' },
+            { code: 'gt', name: '瓜地馬拉', en: 'Guatemala' }, { code: 'hn', name: '宏都拉斯', en: 'Honduras' }, { code: 'sv', name: '薩爾瓦多', en: 'El Salvador' },
+            { code: 'ni', name: '尼加拉瓜', en: 'Nicaragua' }, { code: 'jm', name: '牙買加', en: 'Jamaica' }, { code: 'ht', name: '海地', en: 'Haiti' },
+            { code: 'cu', name: '古巴', en: 'Cuba' }, { code: 'fj', name: '斐濟', en: 'Fiji' }, { code: 'mn', name: '蒙古', en: 'Mongolia' }
+        ];
+
+        // --- 完整洲別與翻譯映射 ---
+        const regionTranslations = {
+            "Asia": "亞洲", "Europe": "歐洲", "Africa": "非洲", "Americas": "美洲", "Oceania": "大洋洲", "Antarctic": "南極洲"
+        };
+        
+        const CCA3_TO_REGION = { "ATA":"Antarctic","AFG":"Asia","AGO":"Africa","ALB":"Europe","ARE":"Asia","ARG":"Americas","ARM":"Asia","AUS":"Oceania","AUT":"Europe","AZE":"Asia","BDI":"Africa","BEL":"Europe","BEN":"Africa","BFA":"Africa","BGD":"Asia","BGR":"Europe","BHS":"Americas","BIH":"Europe","BLR":"Europe","BLZ":"Americas","BOL":"Americas","BRA":"Americas","BRN":"Asia","BTN":"Asia","BWA":"Africa","CAF":"Africa","CAN":"Americas","CHE":"Europe","CHL":"Americas","CHN":"Asia","CIV":"Africa","CMR":"Africa","COD":"Africa","COG":"Africa","COL":"Americas","CRI":"Americas","CUB":"Americas","CYP":"Europe","CZE":"Europe","DEU":"Europe","DJI":"Africa","DNK":"Europe","DOM":"Americas","DZA":"Africa","ECU":"Americas","EGY":"Africa","ERI":"Africa","ESP":"Europe","EST":"Europe","ETH":"Africa","FIN":"Europe","FJI":"Oceania","FLK":"Americas","FRA":"Europe","GAB":"Africa","GBR":"Europe","GEO":"Asia","GHA":"Africa","GIN":"Africa","GMB":"Africa","GNB":"Africa","GNQ":"Africa","GRC":"Europe","GRL":"Americas","GTM":"Americas","GUY":"Americas","HND":"Americas","HRV":"Europe","HTI":"Americas","HUN":"Europe","IDN":"Asia","IND":"Asia","IRL":"Europe","IRN":"Asia","IRQ":"Asia","ISL":"Europe","ISR":"Asia","ITA":"Europe","JAM":"Americas","JOR":"Asia","JPN":"Asia","KAZ":"Asia","KEN":"Africa","KGZ":"Asia","KHM":"Asia","KOR":"Asia","KWT":"Asia","LAO":"Asia","LBN":"Asia","LBR":"Africa","LBY":"Africa","LKA":"Asia","LSO":"Africa","LTU":"Europe","LUX":"Europe","LVA":"Europe","MAR":"Africa","MDA":"Europe","MDG":"Africa","MEX":"Americas","MKD":"Europe","MLI":"Africa","MMR":"Asia","MNE":"Europe","MNG":"Asia","MOZ":"Africa","MRT":"Africa","MWI":"Africa","MYS":"Asia","NAM":"Africa","NCL":"Oceania","NER":"Africa","NGA":"Africa","NIC":"Americas","NLD":"Europe","NOR":"Europe","NPL":"Asia","NZL":"Oceania","OMN":"Asia","PAK":"Asia","PAN":"Americas","PER":"Americas","PHL":"Asia","PNG":"Oceania","POL":"Europe","PRI":"Americas","PRK":"Asia","PRT":"Europe","PRY":"Americas","QAT":"Asia","ROU":"Europe","RUS":"Europe","RWA":"Africa","ESH":"Africa","SAU":"Asia","SDN":"Africa","SSD":"Africa","SEN":"Africa","SGP":"Asia","SLB":"Oceania","SLE":"Africa","SLV":"Americas","SOM":"Africa","SRB":"Europe","SUR":"Americas","SVK":"Europe","SVN":"Europe","SWE":"Europe","SWZ":"Africa","SYR":"Asia","TCD":"Africa","TGO":"Africa","THA":"Asia","TJK":"Asia","TKM":"Asia","TLS":"Asia","TTO":"Americas","TUN":"Africa","TUR":"Asia","TWN":"Asia","TZA":"Africa","UGA":"Africa","UKR":"Europe","URY":"Americas","USA":"Americas","UZB":"Asia","VEN":"Americas","VNM":"Asia","VUT":"Oceania","YEM":"Asia","ZAF":"Africa","ZMB":"Africa","ZWE":"Africa", "MLT":"Europe", "BHR":"Asia" };
+        
+        // CCA3_TO_ISO2 完整對照表
+        const CCA3_TO_ISO2 = {
+            "ATA":"aq","AFG":"af","AGO":"ao","ALB":"al","ARE":"ae","ARG":"ar","ARM":"am","AUS":"au","AUT":"at","AZE":"az","BDI":"bi","BEL":"be","BEN":"bj","BFA":"bf","BGD":"bd","BGR":"bg","BHS":"bs","BIH":"ba","BLR":"by","BLZ":"bz","BOL":"bo","BRA":"br","BRN":"bn","BTN":"bt","BWA":"bw","CAF":"cf","CAN":"ca","CHE":"ch","CHL":"cl","CHN":"cn","CIV":"ci","CMR":"cm","COD":"cd","COG":"cg","COL":"co","CRI":"cr","CUB":"cu","CYP":"cy","CZE":"cz","DEU":"de","DJI":"dj","DNK":"dk","DOM":"do","DZA":"dz","ECU":"ec","EGY":"eg","ERI":"er","ESP":"es","EST":"ee","ETH":"et","FIN":"fi","FJI":"fj","FLK":"fk","FRA":"fr","GAB":"ga","GBR":"gb","GEO":"ge","GHA":"gh","GIN":"gn","GMB":"gm","GNB":"gw","GNQ":"gq","GRC":"gr","GRL":"gl","GTM":"gt","GUY":"gy","HND":"hn","HRV":"hr","HTI":"ht","HUN":"hu","IDN":"id","IND":"in","IRL":"ie","IRN":"ir","IRQ":"iq","ISL":"is","ISR":"il","ITA":"it","JAM":"jm","JOR":"jo","JPN":"jp","KAZ":"kz","KEN":"ke","KGZ":"kg","KHM":"kh","KOR":"kr","KWT":"kw","LAO":"la","LBN":"lb","LBR":"lr","LBY":"ly","LKA":"lk","LSO":"ls","LTU":"lt","LUX":"lu","LVA":"lv","MAR":"ma","MDA":"md","MDG":"mg","MEX":"mx","MKD":"mk","MLI":"ml","MMR":"mm","MNE":"me","MNG":"mn","MOZ":"mz","MRT":"mr","MWI":"mw","MYS":"my","NAM":"na","NCL":"nc","NER":"ne","NGA":"ng","NIC":"ni","NLD":"nl","NOR":"no","NPL":"np","NZL":"nz","OMN":"om","PAK":"pk","PAN":"pa","PER":"pe","PHL":"ph","PNG":"pg","POL":"pl","PRI":"pr","PRK":"kp","PRT":"pt","PRY":"py","QAT":"qa","ROU":"ro","RUS":"ru","RWA":"rw","ESH":"eh","SAU":"sa","SDN":"sd","SSD":"ss","SEN":"sn","SGP":"sg","SLB":"sb","SLE":"sl","SLV":"sv","SOM":"so","SRB":"rs","SUR":"sr","SVK":"sk","SVN":"si","SWE":"se","SWZ":"sz","SYR":"sy","TCD":"td","TGO":"tg","THA":"th","TJK":"tj","TKM":"tm","TLS":"tl","TTO":"tt","TUN":"tn","TUR":"tr","TWN":"tw","TZA":"tz","UGA":"ug","UKR":"ua","URY":"uy","USA":"us","UZB":"uz","VEN":"ve","VNM":"vn","VUT":"vu","YEM":"ye","ZAF":"za","ZMB":"zm","ZWE":"zw", "MLT":"mt", "BHR":"bh"
+        };
+
+        // 產生反向查表 (ISO2 -> CCA3) 以對應使用者的代碼
+        const ISO2_TO_CCA3 = {};
+        for (let cca3 in CCA3_TO_ISO2) {
+            ISO2_TO_CCA3[CCA3_TO_ISO2[cca3]] = cca3;
+        }
+
+        // 完整翻譯字典 (預設全域 170+ 國，後續會以 top100 名單覆寫)
+        const ALL_COUNTRIES_ZH = {
+            "ATA":"南極洲","AFG":"阿富汗","AGO":"安哥拉","ALB":"阿爾巴尼亞","ARE":"阿拉伯聯合大公國","ARG":"阿根廷","ARM":"亞美尼亞","AUS":"澳洲","AUT":"奧地利","AZE":"亞塞拜然","BDI":"蒲隆地","BEL":"比利時","BEN":"貝南","BFA":"布吉納法索","BGD":"孟加拉","BGR":"保加利亞","BHS":"巴哈馬","BIH":"波赫","BLR":"白俄羅斯","BLZ":"貝里斯","BOL":"玻利維亞","BRA":"巴西","BRN":"汶萊","BTN":"不丹","BWA":"波札那","CAF":"中非共和國","CAN":"加拿大","CHE":"瑞士","CHL":"智利","CHN":"中國","CIV":"象牙海岸","CMR":"喀麥隆","COD":"剛果民主共和國","COG":"剛果共和國","COL":"哥倫比亞","CRI":"哥斯大黎加","CUB":"古巴","CYP":"賽普勒斯","CZE":"捷克","DEU":"德國","DJI":"吉布地","DNK":"丹麥","DOM":"多明尼加","DZA":"阿爾及利亞","ECU":"厄瓜多","EGY":"埃及","ERI":"厄利垂亞","ESP":"西班牙","EST":"愛沙尼亞","ETH":"衣索比亞","FIN":"芬蘭","FJI":"斐濟","FLK":"福克蘭群島","FRA":"法國","GAB":"加彭","GBR":"英國","GEO":"喬治亞","GHA":"迦納","GIN":"幾內亞","GMB":"甘比亞","GNB":"幾內亞比索","GNQ":"赤道幾內亞","GRC":"希臘","GRL":"格陵蘭","GTM":"瓜地馬拉","GUY":"蓋亞那","HND":"宏都拉斯","HRV":"克羅埃西亞","HTI":"海地","HUN":"匈牙利","IDN":"印尼","IND":"印度","IRL":"愛爾蘭","IRN":"伊朗","IRQ":"伊拉克","ISL":"冰島","ISR":"以色列","ITA":"義大利","JAM":"牙買加","JOR":"約旦","JPN":"日本","KAZ":"哈薩克","KEN":"肯亞","KGZ":"吉爾吉斯","KHM":"柬埔寨","KOR":"韓國","KWT":"科威特","LAO":"寮國","LBN":"黎巴嫩","LBR":"賴比瑞亞","LBY":"利比亞","LKA":"斯里蘭卡","LSO":"賴索托","LTU":"立陶宛","LUX":"盧森堡","LVA":"拉脫維亞","MAR":"摩洛哥","MDA":"摩爾多瓦","MDG":"馬達加斯加","MEX":"墨西哥","MKD":"北馬其頓","MLI":"馬利","MMR":"緬甸","MNE":"蒙特內哥羅","MNG":"蒙古","MOZ":"莫三比克","MRT":"茅利塔尼亞","MWI":"馬拉威","MYS":"馬來西亞","NAM":"納米比亞","NCL":"新喀里多尼亞","NER":"尼日","NGA":"奈及利亞","NIC":"尼加拉瓜","NLD":"荷蘭","NOR":"挪威","NPL":"尼泊爾","NZL":"紐西蘭","OMN":"阿曼","PAK":"巴基斯坦","PAN":"巴拿馬","PER":"秘魯","PHL":"菲律賓","PNG":"巴布亞紐幾內亞","POL":"波蘭","PRI":"波多黎各","PRK":"北韓","PRT":"葡萄牙","PRY":"巴拉圭","QAT":"卡達","ROU":"羅馬尼亞","RUS":"俄羅斯","RWA":"盧安達","ESH":"西撒哈拉","SAU":"沙烏地阿拉伯","SDN":"蘇丹","SSD":"南蘇丹","SEN":"塞內加爾","SGP":"新加坡","SLB":"索羅門群島","SLE":"獅子山","SLV":"薩爾瓦多","SOM":"索馬利亞","SRB":"塞爾維亞","SUR":"蘇利南","SVK":"斯洛伐克","SVN":"斯洛維尼亞","SWE":"瑞典","SWZ":"史瓦帝尼","SYR":"敘利亞","TCD":"查德","TGO":"多哥","THA":"泰國","TJK":"塔吉克","TKM":"土庫曼","TLS":"東帝汶","TTO":"千里達及托巴哥","TUN":"突尼西亞","TUR":"土耳其","TWN":"台灣","TZA":"坦尚尼亞","UGA":"烏干達","UKR":"烏克蘭","URY":"烏拉圭","USA":"美國","UZB":"烏茲別克","VEN":"委內瑞拉","VNM":"越南","VUT":"萬那杜","YEM":"葉門","ZAF":"南非","ZMB":"尚比亞","ZWE":"辛巴威", "MLT":"馬爾他", "BHR":"巴林"
+        };
+
+        // 【手動覆蓋特殊國家座標】：解決法國、美國等含海外群島導致中心點落在海上的問題
+        const CENTROID_OVERRIDES = {
+            "FRA": [2.2137, 46.2276],  
+            "USA": [-98.5795, 39.8283], 
+            "GBR": [-3.4359, 55.3780],  
+            "NZL": [174.8859, -40.9005],
+            "FJI": [177.9739, -17.7133],
+            "KIR": [179.4144, -1.5231],
+            "RUS": [105.3188, 61.5240],
+            "SGP": [103.8198, 1.3521], // 新加坡
+            "MLT": [14.3754, 35.9375], // 馬爾他
+            "BHR": [50.5577, 26.0667]  // 巴林
+        };
+
+        const mapColors = ['#93c5fd', '#86efac', '#fca5a5', '#fcd34d', '#c4b5fd', '#f9a8d4', '#6ee7b7', '#7dd3fc', '#d8b4fe', '#fde047'];
+        const TAIWAN_COORDS = [-121, -23.5, 0]; 
+
+        let svg, projection, pathGenerator;
+        let oceanCircle, mapGroup, labelsGroup;
+        let countryPaths;
+        let initialScale, currentZoom = 1, d3ZoomBehavior;
+        
+        let geoDataGlobal = null;
+        let mapFeaturesData = {}; 
+        let gameQueue = []; 
+        let currentTargetId = null;
+        let score = 0, currentRound = 1;
+        const totalRounds = 10;
+        let isWaitingForNext = false;
+        let isExploreMode = false; 
+        
+        // 探索模式的高亮名單 (百大 + 南極洲)
+        let TOP_100_SET = new Set(["ATA"]); 
+
+        async function init() {
+            try {
+                await loadMapData();
+                document.getElementById('loading').style.display = 'none';
+                generateGameQueue();
+                startRound();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('loading').innerHTML = `<div class="text-red-500 text-6xl mb-4">⚠️</div><h2 class="text-xl font-black text-white">網路環境阻擋連線</h2>`;
+            }
+        }
+
+        function assignColorsGreedy(features, colorsArray) {
+            const coordMap = new Map();
+            features.forEach(f => {
+                if (!f.geometry) return;
+                const extractCoords = (coords) => {
+                    if (typeof coords[0] === 'number') {
+                        const key = coords[0].toFixed(1) + ',' + coords[1].toFixed(1);
+                        if (!coordMap.has(key)) coordMap.set(key, new Set());
+                        coordMap.get(key).add(f.id);
+                    } else { coords.forEach(extractCoords); }
+                };
+                extractCoords(f.geometry.coordinates);
+            });
+
+            const neighbors = {};
+            features.forEach(f => neighbors[f.id] = new Set());
+            coordMap.forEach(countrySet => {
+                const arr = Array.from(countrySet);
+                for(let i=0; i<arr.length; i++) {
+                    for(let j=i+1; j<arr.length; j++) {
+                        if (neighbors[arr[i]]) neighbors[arr[i]].add(arr[j]);
+                        if (neighbors[arr[j]]) neighbors[arr[j]].add(arr[i]);
+                    }
+                }
+            });
+
+            const assignedColors = {};
+            const sortedFeatures = [...features].sort((a, b) => neighbors[b.id].size - neighbors[a.id].size);
+
+            sortedFeatures.forEach(f => {
+                const usedColors = new Set();
+                neighbors[f.id].forEach(n => { if (assignedColors[n] !== undefined) usedColors.add(assignedColors[n]); });
+                let c = 0;
+                while (usedColors.has(colorsArray[c % colorsArray.length])) { c++; if (c > 50) break; }
+                assignedColors[f.id] = colorsArray[c % colorsArray.length];
+            });
+
+            return assignedColors;
+        }
+
+        async function loadMapData() {
+            const geoJsonUrls = ['https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson', 'https://cdn.jsdelivr.net/gh/johan/world.geo.json@master/countries.geo.json'];
+            for (let url of geoJsonUrls) {
+                try {
+                    const response = await fetch(url);
+                    if (response.ok) { geoDataGlobal = await response.json(); break; }
+                } catch (e) {}
+            }
+            if (!geoDataGlobal) throw new Error("無可用資源");
+
+            // 補上容易被地圖遺漏的微型國家 (新加坡, 馬爾他, 巴林)
+            const extraCountries = [
+                { id: 'SGP', name: 'Singapore', coords: [[[103.5, 1.1], [104.2, 1.1], [104.2, 1.6], [103.5, 1.6], [103.5, 1.1]]] },
+                { id: 'MLT', name: 'Malta', coords: [[[14.2, 35.8], [14.6, 35.8], [14.6, 36.1], [14.2, 36.1], [14.2, 35.8]]] },
+                { id: 'BHR', name: 'Bahrain', coords: [[[50.4, 25.8], [50.8, 25.8], [50.8, 26.3], [50.4, 26.3], [50.4, 25.8]]] }
+            ];
+            extraCountries.forEach(ex => {
+                if (!geoDataGlobal.features.some(f => f.id === ex.id)) {
+                    geoDataGlobal.features.push({
+                        type: "Feature", id: ex.id, properties: { name: ex.name },
+                        geometry: { type: "Polygon", coordinates: ex.coords }
+                    });
+                }
+            });
+
+            // 將使用者提供的翻譯整合進字典，並建立探索模式的高亮名單
+            const allProvidedCountries = [...top30, ...top31to70, ...top71to100];
+            allProvidedCountries.forEach(c => {
+                const cca3 = ISO2_TO_CCA3[c.code];
+                if (cca3) {
+                    ALL_COUNTRIES_ZH[cca3] = c.name;
+                    TOP_100_SET.add(cca3);
+                }
+            });
+
+            geoDataGlobal.features.forEach(feature => {
+                if (d3.geoArea(feature) > 2 * Math.PI) {
+                    if (feature.geometry.type === 'Polygon') {
+                        feature.geometry.coordinates.forEach(ring => ring.reverse());
+                    } else if (feature.geometry.type === 'MultiPolygon') {
+                        feature.geometry.coordinates.forEach(poly => poly.forEach(ring => ring.reverse()));
+                    }
+                }
+                feature.centroid = CENTROID_OVERRIDES[feature.id] || d3.geoCentroid(feature);
+            });
+
+            const dynamicColors = assignColorsGreedy(geoDataGlobal.features, mapColors);
+
+            geoDataGlobal.features.forEach(feature => {
+                const id = feature.id;
+                const region = CCA3_TO_REGION[id] || "Unknown";
+                const zhName = ALL_COUNTRIES_ZH[id] || feature.properties.name || "未知";
+
+                mapFeaturesData[id] = {
+                    feature: feature,
+                    name: zhName,
+                    enName: feature.properties.name || "",
+                    region: region,
+                    regionZh: regionTranslations[region] || region,
+                    defaultColor: dynamicColors[id] || mapColors[0] 
+                };
+            });
+
+            initD3Globe();
+        }
+
+        function initD3Globe() {
+            const container = document.getElementById('map-container');
+            const resizeObserver = new ResizeObserver(entries => {
+                for (let entry of entries) {
+                    const w = entry.contentRect.width;
+                    const h = entry.contentRect.height;
+                    if(w === 0 || h === 0) continue;
+
+                    if(!svg) {
+                        initialScale = Math.min(w, h) / 1.95; 
+                        projection = d3.geoOrthographic().scale(initialScale).translate([w / 2, h / 2]).clipAngle(90).rotate(TAIWAN_COORDS); 
+                        pathGenerator = d3.geoPath().projection(projection);
+
+                        svg = d3.select("#map-container").append("svg").attr("width", w).attr("height", h).style("cursor", "grab");
+                        
+                        oceanCircle = svg.append("circle").attr("cx", w / 2).attr("cy", h / 2).attr("r", initialScale)
+                            .style("fill", "#1e293b").style("pointer-events", "all");
+
+                        mapGroup = svg.append("g");
+                        labelsGroup = svg.append("g").attr("id", "labels-layer"); 
+
+                        countryPaths = mapGroup.selectAll("path").data(geoDataGlobal.features).enter().append("path")
+                            .attr("class", "country")
+                            .attr("d", pathGenerator)
+                            .attr("fill", d => mapFeaturesData[d.id]?.defaultColor || "#64748b")
+                            .attr("stroke", "#1e293b")
+                            .attr("stroke-width", 0.5)
+                            .attr("opacity", 1)
+                            .on("click", function(event, d) {
+                                if(event.defaultPrevented || isExploreMode) return; 
+                                handleGuess(d.id); 
+                            });
+
+                        setupInteractions();
+                    } else {
+                        svg.attr("width", w).attr("height", h);
+                        projection.translate([w / 2, h / 2]);
+                        oceanCircle.attr("cx", w / 2).attr("cy", h / 2);
+                        initialScale = Math.min(w, h) / 1.95;
+                        projection.scale(initialScale * currentZoom);
+                        oceanCircle.attr("r", initialScale * currentZoom);
+                        updateGlobe();
+                    }
+                }
+            });
+            resizeObserver.observe(container);
+        }
+
+        function setupInteractions() {
+            const drag = d3.drag()
+                .on("start", () => svg.style("cursor", "grabbing"))
+                .on("drag", (event) => {
+                    const rotate = projection.rotate();
+                    const k = 70 / projection.scale(); 
+                    let newLambda = rotate[0] + event.dx * k; 
+                    let newPhi = rotate[1] - event.dy * k;    
+                    newPhi = Math.max(-80, Math.min(80, newPhi));
+                    projection.rotate([newLambda, newPhi, 0]); 
+                    updateGlobe();
+                })
+                .on("end", () => svg.style("cursor", "grab"));
+            
+            svg.call(drag);
+
+            d3ZoomBehavior = d3.zoom().scaleExtent([1, 8]).filter(event => event.type === 'wheel') 
+                .on("zoom", (event) => {
+                    currentZoom = event.transform.k;
+                    projection.scale(initialScale * currentZoom);
+                    oceanCircle.attr("r", initialScale * currentZoom);
+                    updateGlobe();
+                });
+            
+            svg.call(d3ZoomBehavior);
+
+            let initialPinchDistance = null, initialZoomK = 1;
+            svg.node().addEventListener('touchstart', e => {
+                if (e.touches.length === 2) {
+                    initialPinchDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                    initialZoomK = currentZoom;
+                }
+            }, {passive: false});
+
+            svg.node().addEventListener('touchmove', e => {
+                if (e.touches.length === 2 && initialPinchDistance) {
+                    e.preventDefault(); 
+                    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                    let newK = Math.max(1, Math.min(initialZoomK * (dist / initialPinchDistance), 8)); 
+                    svg.call(d3ZoomBehavior.transform, d3.zoomIdentity.scale(newK));
+                }
+            }, {passive: false});
+
+            svg.node().addEventListener('touchend', e => { if (e.touches.length < 2) initialPinchDistance = null; });
+        }
+
+        function updateGlobe() {
+            if(countryPaths) countryPaths.attr("d", pathGenerator);
+            if(isExploreMode) updateLabelsVisibility();
+        }
+
+        function handleZoomIn() { if(svg) svg.transition().duration(300).call(d3ZoomBehavior.scaleBy, 1.5); }
+        function handleZoomOut() { if(svg) svg.transition().duration(300).call(d3ZoomBehavior.scaleBy, 0.667); }
+
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function generateGameQueue() {
+            // 過濾並建立題庫
+            const validT1 = top30.filter(c => mapFeaturesData[ISO2_TO_CCA3[c.code]]);
+            const validT2 = top31to70.filter(c => mapFeaturesData[ISO2_TO_CCA3[c.code]]);
+            const validT3 = top71to100.filter(c => mapFeaturesData[ISO2_TO_CCA3[c.code]]);
+
+            const t1 = shuffle([...validT1]).slice(0, 5).map(c => ({ id: ISO2_TO_CCA3[c.code], type: '世界前 30 名' }));
+            const t2 = shuffle([...validT2]).slice(0, 3).map(c => ({ id: ISO2_TO_CCA3[c.code], type: '世界第 31~70 名' }));
+            const t3 = shuffle([...validT3]).slice(0, 2).map(c => ({ id: ISO2_TO_CCA3[c.code], type: '世界第 71~100 名' }));
+            gameQueue = [...t1, ...t2, ...t3];
+        }
+
+        function startRound() {
+            isWaitingForNext = false;
+            
+            if (countryPaths) {
+                countryPaths.transition().duration(400)
+                    .attr("fill", d => mapFeaturesData[d.id]?.defaultColor || "#64748b")
+                    .attr("opacity", 1)
+                    .attr("stroke", "#1e293b");
+            }
+
+            const currentItem = gameQueue[currentRound - 1];
+            currentTargetId = currentItem.id;
+            const targetData = mapFeaturesData[currentTargetId];
+            
+            const iso2 = CCA3_TO_ISO2[currentTargetId] || currentTargetId.substring(0,2).toLowerCase();
+
+            document.getElementById('round-display').innerText = currentRound;
+            document.getElementById('difficulty-badge').innerText = `第 ${currentRound} 題：${currentItem.type}`;
+            document.getElementById('target-name').innerText = targetData.name;
+            document.getElementById('target-flag').src = `https://flagcdn.com/w160/${iso2}.png`;
+            
+            document.getElementById('prompt-card').classList.remove('hidden');
+            document.getElementById('result-card').classList.add('hidden');
+        }
+
+        function handleGuess(clickedId) {
+            if (isWaitingForNext || !currentTargetId) return;
+            
+            const clickedData = mapFeaturesData[clickedId];
+            if(!clickedData || !CCA3_TO_REGION[clickedId] || CCA3_TO_REGION[clickedId] === "Unknown") return; 
+
+            isWaitingForNext = true;
+            const targetData = mapFeaturesData[currentTargetId];
+            
+            let pointsEarned = 0; let resultType = 'wrong'; 
+
+            if (clickedId === currentTargetId) { pointsEarned = 10; resultType = 'exact'; } 
+            else if (clickedData.region === targetData.region) { pointsEarned = 7; resultType = 'continent'; } 
+            else { pointsEarned = 0; resultType = 'wrong'; }
+
+            score += pointsEarned;
+            document.getElementById('score-display').innerText = score;
+
+            highlightMapResult(clickedId, currentTargetId, resultType);
+            showResultCard(clickedData, targetData, pointsEarned, resultType);
+        }
+
+        function highlightMapResult(clickedId, targetId, resultType) {
+            countryPaths.transition().duration(300).attr("fill", "#64748b").attr("opacity", 0.6);
+
+            countryPaths.filter(d => d.id === targetId || d.id === clickedId)
+                .transition().duration(300).attr("opacity", 1)
+                .attr("fill", d => d.id === targetId ? "#22c55e" : (resultType === 'continent' ? "#eab308" : "#ef4444"))
+                .attr("stroke", "#ffffff").attr("stroke-width", 2);
+
+            const targetFeature = mapFeaturesData[targetId].feature;
+            const targetRotate = [-targetFeature.centroid[0], -targetFeature.centroid[1], 0]; 
+
+            d3.transition().duration(1200).tween("rotate", function() {
+                const r = d3.interpolate(projection.rotate(), targetRotate);
+                return function(t) { projection.rotate(r(t)); updateGlobe(); };
+            });
+        }
+
+        function showResultCard(clickedData, targetData, points, resultType) {
+            document.getElementById('prompt-card').classList.add('hidden');
+            const resultCard = document.getElementById('result-card');
+            resultCard.classList.remove('hidden');
+
+            const message = document.getElementById('result-message');
+            const pointsEl = document.getElementById('result-points');
+            const nextBtn = document.getElementById('next-btn');
+            
+            document.getElementById('correct-continent').innerText = `${targetData.name} (${targetData.regionZh})`;
+            
+            const userGuessInfo = document.getElementById('user-guess-info');
+            const guessName = document.getElementById('guess-name');
+            const guessContinent = document.getElementById('guess-continent');
+
+            pointsEl.innerText = `+${points} 分`;
+            
+            if (currentRound >= totalRounds) {
+                nextBtn.innerText = "查看最終成績";
+            } else {
+                nextBtn.innerText = "下一題";
+            }
+
+            if (resultType === 'exact') {
+                message.innerHTML = `太棒了！精準命中！`;
+                message.className = 'w-full text-center mt-auto text-sm md:text-lg text-green-400 font-bold md:mb-1';
+                pointsEl.className = 'w-full text-center text-3xl md:text-4xl font-black mb-3 md:mb-6 text-green-400';
+                userGuessInfo.classList.add('hidden');
+            } else if (resultType === 'continent') {
+                message.innerHTML = `位置不對，但在同一洲！`;
+                message.className = 'w-full text-center mt-auto text-sm md:text-lg text-yellow-400 font-bold md:mb-1';
+                pointsEl.className = 'w-full text-center text-3xl md:text-4xl font-black mb-3 md:mb-6 text-yellow-400';
+                userGuessInfo.classList.remove('hidden');
+                
+                guessName.innerText = clickedData.name;
+                guessContinent.innerText = `位於${clickedData.regionZh}`;
+            } else {
+                message.innerHTML = `哎呀，完全猜錯了！`;
+                message.className = 'w-full text-center mt-auto text-sm md:text-lg text-red-400 font-bold md:mb-1';
+                pointsEl.className = 'w-full text-center text-3xl md:text-4xl font-black mb-3 md:mb-6 text-red-400';
+                userGuessInfo.classList.remove('hidden');
+                
+                guessName.innerText = clickedData.name;
+                guessContinent.innerText = `位於${clickedData.regionZh}`;
+            }
+        }
+
+        function nextRound() {
+            if (currentRound >= totalRounds) {
+                document.getElementById('final-score').innerText = score;
+                let rank = score === 100 ? "🌍 傳說級地球大師！" : (score >= 85 ? "🗺️ 卓越的導航達人！" : (score >= 60 ? "✈️ 優秀的環球旅行家！" : (score >= 30 ? "🧭 迷路的新手背包客" : "🏠 最好還是待在家裡吧 (笑)")));
+                document.getElementById('rank-message').innerText = rank;
+                document.getElementById('game-over').classList.remove('hidden');
+                return;
+            }
+            currentRound++;
+            startRound();
+        }
+
+        // ================= 世界探索模式相關邏輯 =================
+        function enterExploreMode() {
+            document.getElementById('game-over').classList.add('hidden');
+            document.getElementById('prompt-card').classList.add('hidden');
+            document.getElementById('result-card').classList.add('hidden');
+            document.getElementById('explore-card').classList.remove('hidden');
+            
+            isExploreMode = true;
+
+            // 地圖顏色重置
+            countryPaths.transition().duration(500)
+                .attr("fill", d => mapFeaturesData[d.id]?.defaultColor || "#64748b")
+                .attr("opacity", 1).attr("stroke", "#1e293b").attr("stroke-width", 0.5);
+
+            // 建立國家名稱標籤
+            labelsGroup.selectAll("*").remove();
+            
+            const labels = labelsGroup.selectAll("text")
+                .data(geoDataGlobal.features.filter(d => mapFeaturesData[d.id] && d.centroid))
+                .enter().append("text")
+                .attr("class", d => TOP_100_SET.has(d.id) ? "label-top" : "label-other");
+
+            labels.append("tspan").text(d => mapFeaturesData[d.id].name).attr("x", 0).attr("dy", 0);
+            labels.append("tspan").text(d => mapFeaturesData[d.id].enName).attr("x", 0).attr("dy", "1.1em");
+
+            zoomToWorld(); // 重置視角
+            updateGlobe();
+        }
+
+        function updateLabelsVisibility() {
+            const container = document.getElementById('map-container');
+            const center = projection.invert([container.clientWidth/2, container.clientHeight/2]);
+            if(!center) return;
+            labelsGroup.selectAll("text")
+                .attr("transform", d => {
+                    const p = projection(d.centroid);
+                    return p ? `translate(${p[0]},${p[1]})` : "translate(-9999,-9999)";
+                })
+                .style("display", d => {
+                    // 只顯示位於地球面向我們這一側的國家名稱
+                    const dist = d3.geoDistance(d.centroid, center);
+                    return dist < (Math.PI / 2 * 0.85) ? "block" : "none";
+                });
+        }
+
+        function zoomToWorld() {
+            if(svg) {
+                svg.transition().duration(750).call(d3ZoomBehavior.transform, d3.zoomIdentity);
+                d3.transition().duration(1000).tween("rotate", function() {
+                    const r = d3.interpolate(projection.rotate(), TAIWAN_COORDS);
+                    return function(t) { projection.rotate(r(t)); updateGlobe(); };
+                });
+            }
+        }
+
+        function restartGame() {
+            isExploreMode = false;
+            labelsGroup.selectAll("*").remove(); 
+            
+            document.getElementById('explore-card').classList.add('hidden');
+            document.getElementById('game-over').classList.add('hidden');
+            
+            score = 0; currentRound = 1;
+            document.getElementById('score-display').innerText = '0';
+            
+            zoomToWorld();
+            generateGameQueue();
+            startRound();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

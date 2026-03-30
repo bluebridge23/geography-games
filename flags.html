@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>猜國旗挑戰 - 世界100強</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 FontAwesome 圖示 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 簡單的浮現動畫 */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.3s ease-out forwards;
+        }
+        /* 自訂滾動條，讓圖鑑頁面更美觀 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+
+<!-- 返回主選單按鈕 (貼在 body 下方) -->
+<a href="index.html" style="position: fixed; top: 15px; left: 15px; z-index: 10000; background: rgba(15, 23, 42, 0.8); color: white; padding: 8px 16px; border-radius: 20px; text-decoration: none; font-weight: bold; font-family: sans-serif; backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+  <i class="fa-solid fa-arrow-left"></i> 回首頁
+</a>
+
+    <!-- 遊戲主要的容器 -->
+    <div id="app"></div>
+
+    <script>
+        // --- 國家資料庫 (重新編排為 Top 100 與 其他國家) ---
+
+        // 世界前 30 名 (第 1~5 題使用)
+        const top30 = [
+            { code: 'tw', name: '中華民國', en: 'Republic of China' }, { code: 'us', name: '美國', en: 'United States' }, { code: 'cn', name: '中國', en: 'China' },
+            { code: 'jp', name: '日本', en: 'Japan' }, { code: 'de', name: '德國', en: 'Germany' }, { code: 'gb', name: '英國', en: 'United Kingdom' },
+            { code: 'in', name: '印度', en: 'India' }, { code: 'fr', name: '法國', en: 'France' }, { code: 'it', name: '義大利', en: 'Italy' },
+            { code: 'ca', name: '加拿大', en: 'Canada' }, { code: 'kr', name: '韓國', en: 'South Korea' }, { code: 'ru', name: '俄羅斯', en: 'Russia' },
+            { code: 'au', name: '澳洲', en: 'Australia' }, { code: 'br', name: '巴西', en: 'Brazil' }, { code: 'es', name: '西班牙', en: 'Spain' },
+            { code: 'mx', name: '墨西哥', en: 'Mexico' }, { code: 'id', name: '印尼', en: 'Indonesia' }, { code: 'nl', name: '荷蘭', en: 'Netherlands' },
+            { code: 'sa', name: '沙烏地阿拉伯', en: 'Saudi Arabia' }, { code: 'tr', name: '土耳其', en: 'Turkey' }, { code: 'ch', name: '瑞士', en: 'Switzerland' },
+            { code: 'se', name: '瑞典', en: 'Sweden' }, { code: 'pl', name: '波蘭', en: 'Poland' }, { code: 'ar', name: '阿根廷', en: 'Argentina' },
+            { code: 'be', name: '比利時', en: 'Belgium' }, { code: 'th', name: '泰國', en: 'Thailand' }, { code: 'il', name: '以色列', en: 'Israel' },
+            { code: 'at', name: '奧地利', en: 'Austria' }, { code: 'ae', name: '阿拉伯聯合大公國', en: 'UAE' }, { code: 'za', name: '南非', en: 'South Africa' }
+        ];
+
+        // 世界第 31~70 名 (第 6~8 題使用) - 共 40 個
+        const top31to70 = [
+            { code: 'dk', name: '丹麥', en: 'Denmark' }, { code: 'sg', name: '新加坡', en: 'Singapore' }, { code: 'my', name: '馬來西亞', en: 'Malaysia' },
+            { code: 'vn', name: '越南', en: 'Vietnam' }, { code: 'ph', name: '菲律賓', en: 'Philippines' }, { code: 'eg', name: '埃及', en: 'Egypt' },
+            { code: 'ng', name: '奈及利亞', en: 'Nigeria' }, { code: 'bd', name: '孟加拉', en: 'Bangladesh' }, { code: 'pk', name: '巴基斯坦', en: 'Pakistan' },
+            { code: 'ir', name: '伊朗', en: 'Iran' }, { code: 'co', name: '哥倫比亞', en: 'Colombia' }, { code: 'cl', name: '智利', en: 'Chile' },
+            { code: 'pe', name: '秘魯', en: 'Peru' }, { code: 'ro', name: '羅馬尼亞', en: 'Romania' }, { code: 'cz', name: '捷克', en: 'Czechia' },
+            { code: 'pt', name: '葡萄牙', en: 'Portugal' }, { code: 'nz', name: '紐西蘭', en: 'New Zealand' }, { code: 'gr', name: '希臘', en: 'Greece' },
+            { code: 'hu', name: '匈牙利', en: 'Hungary' }, { code: 'ua', name: '烏克蘭', en: 'Ukraine' }, { code: 'kz', name: '哈薩克', en: 'Kazakhstan' },
+            { code: 'qa', name: '卡達', en: 'Qatar' }, { code: 'ma', name: '摩洛哥', en: 'Morocco' }, { code: 'kw', name: '科威特', en: 'Kuwait' },
+            { code: 'sk', name: '斯洛伐克', en: 'Slovakia' }, { code: 'ec', name: '厄瓜多', en: 'Ecuador' }, { code: 'lk', name: '斯里蘭卡', en: 'Sri Lanka' },
+            { code: 'ke', name: '肯亞', en: 'Kenya' }, { code: 'et', name: '衣索比亞', en: 'Ethiopia' }, { code: 'dz', name: '阿爾及利亞', en: 'Algeria' },
+            { code: 'om', name: '阿曼', en: 'Oman' }, { code: 'uz', name: '烏茲別克', en: 'Uzbekistan' }, { code: 'gh', name: '迦納', en: 'Ghana' },
+            { code: 'ci', name: '象牙海岸', en: 'Ivory Coast' }, { code: 'mm', name: '緬甸', en: 'Myanmar' }, { code: 'sd', name: '蘇丹', en: 'Sudan' },
+            { code: 'iq', name: '伊拉克', en: 'Iraq' }, { code: 'sy', name: '敘利亞', en: 'Syria' }, { code: 'ye', name: '葉門', en: 'Yemen' },
+            { code: 'bg', name: '保加利亞', en: 'Bulgaria' }
+        ];
+
+        // 世界第 71~100 名 (第 9~10 題使用) - 共 30 個
+        const top71to100 = [
+            { code: 'rs', name: '塞爾維亞', en: 'Serbia' }, { code: 'hr', name: '克羅埃西亞', en: 'Croatia' }, { code: 'si', name: '斯洛維尼亞', en: 'Slovenia' },
+            { code: 'lt', name: '立陶宛', en: 'Lithuania' }, { code: 'lv', name: '拉脫維亞', en: 'Latvia' }, { code: 'ee', name: '愛沙尼亞', en: 'Estonia' },
+            { code: 'cy', name: '賽普勒斯', en: 'Cyprus' }, { code: 'mt', name: '馬爾他', en: 'Malta' }, { code: 'is', name: '冰島', en: 'Iceland' },
+            { code: 'lu', name: '盧森堡', en: 'Luxembourg' }, { code: 'bh', name: '巴林', en: 'Bahrain' }, { code: 'bn', name: '汶萊', en: 'Brunei' },
+            { code: 'am', name: '亞美尼亞', en: 'Armenia' }, { code: 'ge', name: '喬治亞', en: 'Georgia' }, { code: 'az', name: '亞塞拜然', en: 'Azerbaijan' },
+            { code: 'cr', name: '哥斯大黎加', en: 'Costa Rica' }, { code: 'pa', name: '巴拿馬', en: 'Panama' }, { code: 'uy', name: '烏拉圭', en: 'Uruguay' },
+            { code: 'py', name: '巴拉圭', en: 'Paraguay' }, { code: 'bo', name: '玻利維亞', en: 'Bolivia' }, { code: 'do', name: '多明尼加', en: 'Dominican Republic' },
+            { code: 'gt', name: '瓜地馬拉', en: 'Guatemala' }, { code: 'hn', name: '宏都拉斯', en: 'Honduras' }, { code: 'sv', name: '薩爾瓦多', en: 'El Salvador' },
+            { code: 'ni', name: '尼加拉瓜', en: 'Nicaragua' }, { code: 'jm', name: '牙買加', en: 'Jamaica' }, { code: 'ht', name: '海地', en: 'Haiti' },
+            { code: 'cu', name: '古巴', en: 'Cuba' }, { code: 'fj', name: '斐濟', en: 'Fiji' }, { code: 'mn', name: '蒙古', en: 'Mongolia' }
+        ];
+
+        // 集合前 100 大國家 (遊戲的答題池與選項池皆來源於此)
+        const top100Countries = [...top30, ...top31to70, ...top71to100];
+
+        // 其他所有國家 (圖鑑專用)
+        const otherCountries = [
+            { code: 'af', name: '阿富汗', en: 'Afghanistan' }, { code: 'al', name: '阿爾巴尼亞', en: 'Albania' }, { code: 'ao', name: '安哥拉', en: 'Angola' },
+            { code: 'ba', name: '波赫', en: 'Bosnia and Herz.' }, { code: 'bb', name: '巴貝多', en: 'Barbados' }, { code: 'bf', name: '布吉納法索', en: 'Burkina Faso' },
+            { code: 'bi', name: '蒲隆地', en: 'Burundi' }, { code: 'bj', name: '貝南', en: 'Benin' }, { code: 'bs', name: '巴哈馬', en: 'Bahamas' },
+            { code: 'bt', name: '不丹', en: 'Bhutan' }, { code: 'bw', name: '波札那', en: 'Botswana' }, { code: 'by', name: '白俄羅斯', en: 'Belarus' },
+            { code: 'bz', name: '貝里斯', en: 'Belize' }, { code: 'cd', name: '剛果民主', en: 'DR Congo' }, { code: 'cf', name: '中非', en: 'Central African Rep.' },
+            { code: 'cg', name: '剛果共和', en: 'Rep. of the Congo' }, { code: 'cm', name: '喀麥隆', en: 'Cameroon' }, { code: 'cv', name: '維德角', en: 'Cape Verde' },
+            { code: 'dj', name: '吉布地', en: 'Djibouti' }, { code: 'er', name: '厄利垂亞', en: 'Eritrea' }, { code: 'ga', name: '加彭', en: 'Gabon' },
+            { code: 'gm', name: '甘比亞', en: 'Gambia' }, { code: 'gn', name: '幾內亞', en: 'Guinea' }, { code: 'gq', name: '赤道幾內亞', en: 'Equatorial Guinea' },
+            { code: 'gw', name: '幾內亞比索', en: 'Guinea-Bissau' }, { code: 'gy', name: '蓋亞那', en: 'Guyana' }, { code: 'jo', name: '約旦', en: 'Jordan' },
+            { code: 'kg', name: '吉爾吉斯', en: 'Kyrgyzstan' }, { code: 'kh', name: '柬埔寨', en: 'Cambodia' }, { code: 'ki', name: '吉里巴斯', en: 'Kiribati' },
+            { code: 'km', name: '葛摩', en: 'Comoros' }, { code: 'kp', name: '北韓', en: 'North Korea' }, { code: 'la', name: '寮國', en: 'Laos' },
+            { code: 'lb', name: '黎巴嫩', en: 'Lebanon' }, { code: 'lr', name: '賴比瑞亞', en: 'Liberia' }, { code: 'ls', name: '賴索托', en: 'Lesotho' },
+            { code: 'ly', name: '利比亞', en: 'Libya' }, { code: 'md', name: '摩爾多瓦', en: 'Moldova' }, { code: 'mg', name: '馬達加斯加', en: 'Madagascar' },
+            { code: 'mk', name: '北馬其頓', en: 'North Macedonia' }, { code: 'ml', name: '馬利', en: 'Mali' }, { code: 'mr', name: '茅利塔尼亞', en: 'Mauritania' },
+            { code: 'mu', name: '模里西斯', en: 'Mauritius' }, { code: 'mv', name: '馬爾地夫', en: 'Maldives' }, { code: 'mw', name: '馬拉威', en: 'Malawi' },
+            { code: 'mz', name: '莫三比克', en: 'Mozambique' }, { code: 'na', name: '納米比亞', en: 'Namibia' }, { code: 'ne', name: '尼日', en: 'Niger' },
+            { code: 'np', name: '尼泊爾', en: 'Nepal' }, { code: 'pg', name: '巴布亞紐幾內亞', en: 'Papua New Guinea' }, { code: 'rw', name: '盧安達', en: 'Rwanda' },
+            { code: 'sb', name: '索羅門群島', en: 'Solomon Islands' }, { code: 'sc', name: '塞席爾', en: 'Seychelles' }, { code: 'sl', name: '獅子山', en: 'Sierra Leone' },
+            { code: 'sm', name: '聖馬利諾', en: 'San Marino' }, { code: 'sn', name: '塞內加爾', en: 'Senegal' }, { code: 'so', name: '索馬利亞', en: 'Somalia' },
+            { code: 'sr', name: '蘇利南', en: 'Suriname' }, { code: 'ss', name: '南蘇丹', en: 'South Sudan' }, { code: 'st', name: '聖多美普林西比', en: 'São Tomé & Príncipe' },
+            { code: 'sz', name: '史瓦帝尼', en: 'Eswatini' }, { code: 'td', name: '查德', en: 'Chad' }, { code: 'tg', name: '多哥', en: 'Togo' },
+            { code: 'tj', name: '塔吉克', en: 'Tajikistan' }, { code: 'tl', name: '東帝汶', en: 'Timor-Leste' }, { code: 'tm', name: '土庫曼', en: 'Turkmenistan' },
+            { code: 'tn', name: '突尼西亞', en: 'Tunisia' }, { code: 'to', name: '東加', en: 'Tonga' }, { code: 'tv', name: '吐瓦魯', en: 'Tuvalu' },
+            { code: 'tz', name: '坦尚尼亞', en: 'Tanzania' }, { code: 'ug', name: '烏干達', en: 'Uganda' }, { code: 'vu', name: '萬那杜', en: 'Vanuatu' },
+            { code: 'ws', name: '薩摩亞', en: 'Samoa' }, { code: 'zm', name: '尚比亞', en: 'Zambia' }, { code: 'zw', name: '辛巴威', en: 'Zimbabwe' }
+        ];
+
+        // --- 遊戲狀態管理 ---
+        let gameState = 'start'; // 可為 'start', 'playing', 'end', 'dictionary'
+        let previousState = 'start'; // 記錄是從哪裡進到圖鑑的，方便返回
+        let questions = [];
+        let currentIndex = 0;
+        let score = 0;
+        let selectedOption = null;
+
+        // 工具函式：打亂陣列順序
+        function shuffleArray(array) {
+            const newArr = [...array];
+            for (let i = newArr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+            }
+            return newArr;
+        }
+
+        // 切換到圖鑑
+        function openDictionary() {
+            previousState = gameState;
+            gameState = 'dictionary';
+            render();
+        }
+
+        // 從圖鑑返回
+        function closeDictionary() {
+            gameState = previousState;
+            render();
+        }
+
+        // --- 遊戲邏輯 ---
+        function generateQuestions() {
+            // 前五題從 1~30 名中抽
+            const selectedTop30 = shuffleArray(top30).slice(0, 5);
+            // 6~8 題從 31~70 名中抽
+            const selectedTop31to70 = shuffleArray(top31to70).slice(0, 3);
+            // 最後 2 題從 71~100 名中抽
+            const selectedTop71to100 = shuffleArray(top71to100).slice(0, 2);
+            
+            const roundCountries = [...selectedTop30, ...selectedTop31to70, ...selectedTop71to100];
+
+            questions = roundCountries.map((correctCountry) => {
+                // 為了符合題意「只針對世界前100個國家」，錯誤選項也只從前100大國家池子中抽出
+                const wrongPool = top100Countries.filter(c => c.code !== correctCountry.code);
+                const wrongOptions = shuffleArray(wrongPool).slice(0, 3);
+                // 將正確選項與抽出的3個錯誤選項合併，並再次打亂順序
+                const options = shuffleArray([correctCountry, ...wrongOptions]);
+                
+                return {
+                    correct: correctCountry,
+                    options: options
+                };
+            });
+
+            currentIndex = 0;
+            score = 0;
+            selectedOption = null;
+            gameState = 'playing';
+            render();
+        }
+
+        function handleOptionClick(code) {
+            if (selectedOption) return; // 已回答過防連點
+            
+            const currentQuestion = questions[currentIndex];
+            selectedOption = currentQuestion.options.find(opt => opt.code === code);
+            
+            if (selectedOption.code === currentQuestion.correct.code) {
+                score++;
+            }
+            render();
+        }
+
+        function handleNextQuestion() {
+            if (currentIndex < questions.length - 1) {
+                currentIndex++;
+                selectedOption = null;
+            } else {
+                gameState = 'end';
+            }
+            render();
+        }
+
+        // --- 產生圖鑑卡片的 HTML ---
+        function generateCountryCardsHtml(countryArray) {
+            return countryArray.map(c => `
+                <div class="flex flex-col items-center bg-white p-3 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition duration-200">
+                    <img src="https://flagcdn.com/w160/${c.code}.png" alt="${c.name} 國旗" class="w-16 h-11 object-cover rounded border border-slate-100 mb-2 shadow-sm" loading="lazy" />
+                    <span class="text-sm font-bold text-slate-700 text-center tracking-wide leading-tight">${c.name}</span>
+                    <span class="text-xs font-medium text-slate-400 text-center mt-1 leading-none">${c.en}</span>
+                </div>
+            `).join('');
+        }
+
+        // --- 畫面渲染 ---
+        function render() {
+            const app = document.getElementById('app');
+
+            if (gameState === 'start') {
+                app.innerHTML = `
+                    <div class="min-h-screen flex items-center justify-center p-4">
+                        <div class="bg-white max-w-md w-full rounded-3xl shadow-xl p-8 text-center space-y-6">
+                            <div class="bg-blue-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto text-blue-600 text-5xl">
+                                <i class="fa-solid fa-earth-americas"></i>
+                            </div>
+                            <h1 class="text-3xl font-bold text-slate-800 tracking-wide">猜國旗挑戰</h1>
+                            <p class="text-slate-600 leading-relaxed font-medium">
+                                專注於世界前 100 名的常見國家！<br/>
+                                <span class="text-green-600 block mt-2">📍 第 1~5 題：世界前 30 名</span>
+                                <span class="text-yellow-600 block">📍 第 6~8 題：世界 31~70 名</span>
+                                <span class="text-red-600 block mb-2">📍 第 9~10 題：世界 71~100 名</span>
+                            </p>
+                            <div class="space-y-3 pt-2">
+                                <button onclick="generateQuestions()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-blue-200 text-lg">
+                                    開始挑戰
+                                </button>
+                                <button onclick="openDictionary()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 px-6 rounded-xl transition-all duration-200 flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-book-atlas"></i> 世界國旗圖鑑
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } 
+            else if (gameState === 'playing') {
+                const currentQuestion = questions[currentIndex];
+                const isAnswered = selectedOption !== null;
+                const isCorrect = isAnswered && selectedOption.code === currentQuestion.correct.code;
+
+                let difficultyText = "前 30 名國家";
+                let difficultyColor = "text-green-600 bg-green-100 border-green-200";
+                if (currentIndex >= 5 && currentIndex <= 7) {
+                    difficultyText = "第 31~70 名國家";
+                    difficultyColor = "text-yellow-600 bg-yellow-100 border-yellow-200";
+                } else if (currentIndex >= 8) {
+                    difficultyText = "第 71~100 名國家";
+                    difficultyColor = "text-red-600 bg-red-100 border-red-200";
+                }
+
+                // 產生選項的 HTML
+                const optionsHtml = currentQuestion.options.map(option => {
+                    let buttonStyle = "bg-white text-slate-700 hover:bg-blue-50 hover:border-blue-400 border-slate-200 cursor-pointer";
+                    
+                    if (isAnswered) {
+                        buttonStyle = buttonStyle.replace('cursor-pointer', 'cursor-default').replace('hover:bg-blue-50 hover:border-blue-400', '');
+                        if (option.code === currentQuestion.correct.code) {
+                            buttonStyle = "bg-green-500 text-white border-green-600 shadow-inner";
+                        } else if (option.code === selectedOption.code && !isCorrect) {
+                            buttonStyle = "bg-red-500 text-white border-red-600 shadow-inner";
+                        } else {
+                            buttonStyle = "bg-white text-slate-400 border-slate-200 opacity-50";
+                        }
+                    }
+
+                    return `
+                        <button 
+                            onclick="handleOptionClick('${option.code}')" 
+                            ${isAnswered ? 'disabled' : ''}
+                            class="py-4 px-4 rounded-xl border-2 font-bold text-lg transition-all duration-200 active:scale-95 flex items-center justify-center ${buttonStyle}">
+                            ${option.name}
+                        </button>
+                    `;
+                }).join('');
+
+                // 產生回饋區塊
+                let feedbackHtml = '';
+                let feedbackClass = 'bg-transparent';
+                if (isAnswered) {
+                    feedbackClass = isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+                    const icon = isCorrect ? '<i class="fa-solid fa-circle-check text-2xl"></i>' : '<i class="fa-solid fa-circle-xmark text-2xl"></i>';
+                    const text = isCorrect ? '答對了！' : `答錯了！正解為：${currentQuestion.correct.name}`;
+                    feedbackHtml = `
+                        <div class="flex items-center gap-2 font-bold text-lg">
+                            ${icon} <span>${text}</span>
+                        </div>
+                    `;
+                }
+
+                app.innerHTML = `
+                    <div class="min-h-screen flex flex-col items-center py-6 px-4">
+                        <div class="max-w-md w-full space-y-5">
+                            
+                            <!-- 上方資訊列 -->
+                            <div class="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                                <div class="font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-lg">
+                                    題 ${currentIndex + 1} <span class="text-slate-400 font-normal">/ 10</span>
+                                </div>
+                                <div class="text-xs font-bold px-3 py-1.5 rounded-full border ${difficultyColor}">
+                                    ${difficultyText}
+                                </div>
+                                <div class="font-bold text-slate-700">
+                                    分 <span class="text-blue-600 text-lg">${score}</span>
+                                </div>
+                            </div>
+
+                            <!-- 國旗展示區 -->
+                            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center space-y-6">
+                                <div class="w-full aspect-[3/2] relative rounded-xl overflow-hidden shadow-inner bg-slate-50 flex items-center justify-center border border-slate-200">
+                                    <img src="https://flagcdn.com/w640/${currentQuestion.correct.code}.png" alt="國旗" class="object-cover max-h-full max-w-full drop-shadow-md"/>
+                                </div>
+                                <div class="w-full h-14 flex items-center justify-center rounded-xl transition-all duration-300 ${feedbackClass}">
+                                    ${feedbackHtml}
+                                </div>
+                            </div>
+
+                            <!-- 選項區 -->
+                            <div class="grid grid-cols-2 gap-3.5">
+                                ${optionsHtml}
+                            </div>
+
+                            <!-- 下一題按鈕 -->
+                            ${isAnswered ? `
+                                <button onclick="handleNextQuestion()" class="w-full mt-2 bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-2 animate-fade-in-up">
+                                    ${currentIndex === 9 ? '查看結算成績' : '下一題'}
+                                    <i class="fa-solid fa-arrow-right"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            else if (gameState === 'end') {
+                let comment = "再接再厲！";
+                if (score === 10) comment = "太神啦！你是完美地理大師！";
+                else if (score >= 8) comment = "非常厲害！國旗達人就是你。";
+                else if (score >= 5) comment = "表現不錯！繼續加油。";
+
+                app.innerHTML = `
+                    <div class="min-h-screen flex items-center justify-center p-4">
+                        <div class="bg-white max-w-md w-full rounded-3xl shadow-xl p-8 text-center space-y-6">
+                            <div class="bg-yellow-100 w-28 h-28 rounded-full flex items-center justify-center mx-auto text-yellow-500 text-6xl shadow-inner">
+                                <i class="fa-solid fa-trophy"></i>
+                            </div>
+                            <h2 class="text-3xl font-bold text-slate-800">挑戰完成！</h2>
+                            <div class="text-6xl font-black text-blue-600 my-4 drop-shadow-sm">
+                                ${score} <span class="text-2xl text-slate-400 font-medium">/ 10</span>
+                            </div>
+                            <p class="text-lg text-slate-600 font-bold bg-slate-50 py-2 rounded-lg">${comment}</p>
+                            
+                            <div class="space-y-3 pt-4">
+                                <button onclick="generateQuestions()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-6 rounded-xl transition-colors duration-200 shadow-lg shadow-blue-200 flex items-center justify-center gap-2 text-lg">
+                                    <i class="fa-solid fa-rotate-right"></i> 再玩一次
+                                </button>
+                                <button onclick="openDictionary()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 px-6 rounded-xl transition-colors duration-200 shadow-lg shadow-teal-200 flex items-center justify-center gap-2 text-lg">
+                                    <i class="fa-solid fa-book-atlas"></i> 查看世界國旗圖鑑
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            else if (gameState === 'dictionary') {
+                app.innerHTML = `
+                    <div class="min-h-screen bg-slate-50 py-8 px-4 md:px-8">
+                        <div class="max-w-6xl mx-auto space-y-10 animate-fade-in-up">
+                            
+                            <!-- 頂部導航 -->
+                            <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100 gap-4">
+                                <h2 class="text-3xl font-black text-slate-800 flex items-center gap-3">
+                                    <i class="fa-solid fa-book-atlas text-blue-600"></i> 世界各國國旗圖鑑
+                                </h2>
+                                <button onclick="closeDictionary()" class="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white px-6 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-arrow-left"></i> 返回
+                                </button>
+                            </div>
+
+                            <!-- 世界前100個國家 (題庫) -->
+                            <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-200">
+                                <div class="mb-6 border-b-2 border-blue-100 pb-4">
+                                    <h3 class="text-2xl font-bold text-blue-800 flex items-center gap-2">
+                                        <i class="fa-solid fa-ranking-star text-yellow-500"></i> 世界前 100 個國家 
+                                        <span class="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full ml-2">本遊戲專屬題庫</span>
+                                    </h3>
+                                </div>
+                                <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4">
+                                    ${generateCountryCardsHtml(top100Countries)}
+                                </div>
+                            </div>
+
+                            <!-- 其他所有國家 -->
+                            <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-200 opacity-90">
+                                <div class="mb-6 border-b-2 border-slate-100 pb-4">
+                                    <h3 class="text-2xl font-bold text-slate-600 flex items-center gap-2">
+                                        <i class="fa-solid fa-globe text-slate-400"></i> 其他所有國家
+                                    </h3>
+                                </div>
+                                <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4">
+                                    ${generateCountryCardsHtml(otherCountries)}
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // 初始化畫面
+        render();
+    </script>
+</body>
+</html>
