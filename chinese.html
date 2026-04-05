@@ -37,7 +37,7 @@
       { char: "思", radical: "心", component: "田", bopomofo: "ㄙ", mean: "考慮。", pre: "我正在", post: "考這道數學題怎麼算。" },
       { char: "李", radical: "木", component: "子", bopomofo: "ㄌㄧˇ", mean: "姓氏、水果。", pre: "這顆", post: "子好好吃。" },
       { char: "蘇", radical: "艹", component: "穌", bopomofo: "ㄙㄨ", mean: "姓氏、甦醒。", pre: "這塊鳳梨", post: "打餅很好吃。" },
-      { char: "耀", radical: "火", component: "翟", bopomofo: "ㄧㄠˋ", mean: "光芒、炫耀。", pre: "太陽照", post: "著大地。" },
+      { char: "耀", radical: "光", component: "翟", bopomofo: "ㄧㄠˋ", mean: "光芒、炫耀。", pre: "太陽照", post: "著大地。" },
       { char: "蔡", radical: "艹", component: "祭", bopomofo: "ㄘㄞˋ", mean: "姓氏。", pre: "這位同學姓", post: "。" },
       { char: "娥", radical: "女", component: "我", bopomofo: "ㄜˊ", mean: "美女、嫦娥。", pre: "傳說嫦", post: "奔向月亮。" },
       { char: "昭", radical: "日", component: "召", bopomofo: "ㄓㄠ", mean: "明亮。", pre: "這起冤案終於在今天沉冤", post: "雪。" },
@@ -577,7 +577,7 @@
       "波":"ㄅㄛ", "裝":"ㄓㄨㄤ", "媽":"ㄇㄚ", "給":"ㄍㄟˇ", "櫻":"ㄧㄥ", "片":"ㄆㄧㄢˋ", "森":"ㄙㄣ", "鳥":"ㄋㄧㄠˇ",
       "樹":"ㄕㄨˋ", "請":"ㄑㄧㄥˇ", "溫":"ㄨㄣ", "老":"ㄌㄠˇ", "師":"ㄕ", "黑":"ㄏㄟ", "寫":"ㄒㄧㄝˇ", "字":"ㄗˋ",
       "埋":"ㄇㄞˊ", "深":"ㄕㄣ", "把":"ㄅㄚˇ", "每":"ㄇㄟˇ", "早":"ㄗㄠˇ", "背":"ㄅㄟ", "書":"ㄕㄨ", "包":"ㄅㄠ",
-      "冬":"ㄉㄨㄥ", "開":"ㄎㄞ", "坐":"ㄗㄨㄛˋ", "張":"ㄓㄤ", "木":"ㄇㄨˋ", "走":"ㄗㄡˇ", "座":"ㄗㄨㄛˋ",
+      "冬":"ㄉㄨㄥ", "開":"ㄎㄞ", "坐":"ㄗㄨㄛˋ", "張":"ㄓㄤ", "木":"ㄇㄨˋ", "走":"ㄗㄨㄛˋ", "座":"ㄗㄨㄛˋ",
       "最":"ㄗㄨㄟˋ", "適":"ㄕˋ", "合":"ㄏㄜˊ", "心":"ㄒㄧㄣ", "娃":"ㄨㄚˊ", "操":"ㄘㄠ", "場":"ㄔㄤˇ", "籃":"ㄌㄢˊ",
       "齊":"ㄑㄧˊ", "遺":"ㄧˊ", "失":"ㄕ", "鉛":"ㄑㄧㄢ", "警":"ㄐㄧㄥˇ", "察":"ㄘㄚˊ", "偷":"ㄊㄡ", "色":"ㄙㄜˋ",
       "紙":"ㄓˇ", "從":"ㄘㄨㄥˊ", "盒":"ㄏㄜˊ", "抽":"ㄔㄡ", "衛":"ㄨㄟˋ", "生":"ㄕㄥ", "日":"ㄖˋ", "禮":"ㄌㄧˇ",
@@ -663,9 +663,9 @@
             if (showZhuyin && zhuyin && !isPunctuation) {
               return (
                 <span key={idx} className="inline-flex items-end mx-[1px] md:mx-[2px] leading-none">
-                  <span className="text-2xl md:text-4xl pb-[2px]">{char}</span>
+                  <span className="text-3xl md:text-5xl pb-[2px]">{char}</span>
                   <span className="ml-[1px] pb-[4px]">
-                    <VerticalZhuyin bopomofo={zhuyin} size="xs" />
+                    <VerticalZhuyin bopomofo={zhuyin} size="sm" />
                   </span>
                 </span>
               );
@@ -693,7 +693,7 @@
 
       const renderSlot = (type, val, ans, onClick, label, positionClasses) => {
         const activeColor = type === 'radical' ? 'bg-blue-100 border-blue-400 text-blue-700' : 'bg-green-100 border-green-400 text-green-700';
-        const textSize = isTB ? "text-xl md:text-3xl leading-none" : "text-2xl md:text-4xl";
+        const textSize = isTB ? "text-2xl md:text-4xl leading-none" : "text-3xl md:text-5xl";
         return (
           <div onClick={onClick} className={`flex items-center justify-center font-bold cursor-pointer transition-all ${positionClasses}
               ${val ? `${activeColor} shadow-inner` : 'bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100'}
@@ -705,10 +705,10 @@
 
       return (
         <div className="inline-flex items-end mx-2 align-bottom">
-          <div className={`flex items-center justify-center min-w-[70px] md:min-w-[100px] h-[60px] md:h-[80px] border-b-4 
+          <div className={`flex items-center justify-center min-w-[80px] md:min-w-[120px] h-[70px] md:h-[100px] border-b-4 
             ${isRevealed ? 'border-green-500 border-solid' : 'border-amber-500 border-dashed'} pb-1`}>
             {isRevealed ? (
-              <span className="text-4xl md:text-5xl font-bold text-green-600 animate-bounce">{char}</span>
+              <span className="text-5xl md:text-7xl font-bold text-green-600 animate-bounce">{char}</span>
             ) : (
               <div className={`flex justify-center items-center h-full w-full gap-[2px] px-1 py-1 ${isTB ? 'flex-col' : 'flex-row'}`}>
                 {isTB ? (
@@ -838,7 +838,7 @@
           <h3 className="text-center font-bold text-blue-800 mb-4 md:text-lg">🟦 選擇部首</h3>
           <div className="grid grid-cols-2 gap-2 md:gap-4">
             {radicalOptions.map(r => (
-              <button key={`rad-${r}`} onClick={() => setSlotRadical(r)} disabled={isRevealed || slotRadical === r} className={`aspect-square text-3xl md:text-5xl rounded-lg font-bold shadow-sm transition-transform active:scale-95 ${slotRadical === r ? 'bg-blue-300 text-white opacity-40' : 'bg-white text-blue-700 hover:bg-blue-100 border border-blue-200 hover:border-blue-400'}`}>{r}</button>
+              <button key={`rad-${r}`} onClick={() => setSlotRadical(r)} disabled={isRevealed || slotRadical === r} className={`aspect-square text-5xl md:text-7xl rounded-lg font-bold shadow-sm transition-transform active:scale-95 ${slotRadical === r ? 'bg-blue-300 text-white opacity-40' : 'bg-white text-blue-700 hover:bg-blue-100 border border-blue-200 hover:border-blue-400'}`}>{r}</button>
             ))}
           </div>
         </div>
@@ -849,7 +849,7 @@
           <h3 className="text-center font-bold text-green-800 mb-4 md:text-lg">🟩 選擇偏旁</h3>
           <div className="grid grid-cols-2 gap-2 md:gap-4">
             {componentOptions.map(c => (
-              <button key={`comp-${c}`} onClick={() => setSlotComponent(c)} disabled={isRevealed || slotComponent === c} className={`aspect-square text-3xl md:text-5xl rounded-lg font-bold shadow-sm transition-transform active:scale-95 ${slotComponent === c ? 'bg-green-300 text-white opacity-40' : 'bg-white text-green-700 hover:bg-green-100 border border-green-200 hover:border-green-400'}`}>{c}</button>
+              <button key={`comp-${c}`} onClick={() => setSlotComponent(c)} disabled={isRevealed || slotComponent === c} className={`aspect-square text-5xl md:text-7xl rounded-lg font-bold shadow-sm transition-transform active:scale-95 ${slotComponent === c ? 'bg-green-300 text-white opacity-40' : 'bg-white text-green-700 hover:bg-green-100 border border-green-200 hover:border-green-400'}`}>{c}</button>
             ))}
           </div>
         </div>
@@ -881,7 +881,7 @@
               <div className="text-red-500">機會：{'❤️'.repeat(3 - attempts)}{'🤍'.repeat(attempts)}</div>
             </div>
             <div className="bg-white rounded-2xl shadow-md p-4 md:p-6 w-full border-2 border-amber-200">
-              <div className="flex flex-wrap justify-center items-end text-2xl md:text-4xl font-bold tracking-wide leading-relaxed">
+              <div className="flex flex-wrap justify-center items-end text-3xl md:text-5xl font-bold tracking-wide leading-relaxed">
                 <SentencePart text={currentQ.pre} showZhuyin={showFullZhuyin} />
                 <InteractiveWordSlot char={currentQ.char} bopomofo={currentQ.bopomofo} isRevealed={isRevealed} slotRadical={slotRadical} slotComponent={slotComponent} onClearRadical={() => { if(!isRevealed) setSlotRadical(null) }} onClearComponent={() => { if(!isRevealed) setSlotComponent(null) }} status={status} radicalAns={currentQ.radical} componentAns={currentQ.component} />
                 <SentencePart text={currentQ.post} showZhuyin={showFullZhuyin} />
