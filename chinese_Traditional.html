@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>繁體中文工坊</title>
+  
+  <!-- 引入 Tailwind CSS 框架 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- 引入 React 與 ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- 引入 Babel (用來在瀏覽器中即時編譯 JSX 語法) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
+  </style>
+</head>
+<body class="bg-[#FDFBF7]">
+
+  <!-- 遊戲的根節點 -->
+  <div id="root"></div>
+
+  <!-- React 程式碼 (必須標註 type="text/babel") -->
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // ==========================================
+    // 統一超級資料庫 (RAW_WORD_DATA)
+    // ==========================================
+    const RAW_WORD_DATA = [
+      { char: "澈", radical: "氵", component: "育攵", bopomofo: "ㄔㄜˋ", mean: "水清。", pre: "這條小溪的水非常清", post: "見底。" },
+      { char: "郁", radical: "阝", component: "有", bopomofo: "ㄩˋ", mean: "香氣濃。", pre: "花園裡散發出濃", post: "的花香。" },
+      { char: "思", radical: "心", component: "田", bopomofo: "ㄙ", mean: "考慮。", pre: "我正在", post: "考這道數學題怎麼算。" },
+      { char: "李", radical: "木", component: "子", bopomofo: "ㄌㄧˇ", mean: "姓氏、水果。", pre: "這顆", post: "子好好吃。" },
+      { char: "蘇", radical: "艹", component: "穌", bopomofo: "ㄙㄨ", mean: "姓氏、甦醒。", pre: "這塊鳳梨", post: "打餅很好吃。" },
+      { char: "耀", radical: "火", component: "翟", bopomofo: "ㄧㄠˋ", mean: "光芒、炫耀。", pre: "太陽照", post: "著大地。" },
+      { char: "蔡", radical: "艹", component: "祭", bopomofo: "ㄘㄞˋ", mean: "姓氏。", pre: "這位同學姓", post: "。" },
+      { char: "娥", radical: "女", component: "我", bopomofo: "ㄜˊ", mean: "美女、嫦娥。", pre: "傳說嫦", post: "奔向月亮。" },
+      { char: "昭", radical: "日", component: "召", bopomofo: "ㄓㄠ", mean: "明亮。", pre: "這起冤案終於在今天沉冤", post: "雪。" },
+      { char: "松", radical: "木", component: "公", bopomofo: "ㄙㄨㄥ", mean: "一種常綠喬木。", pre: "山坡上長著高大的", post: "樹。" },
+      { char: "珮", radical: "王", component: "佩", bopomofo: "ㄆㄟˋ", mean: "玉飾。", pre: "她的腰間掛著一塊玉", post: "。" },
+      { char: "瑜", radical: "王", component: "兪", bopomofo: "ㄩˊ", mean: "美玉、優點。", pre: "他這輩子最大的優點就是瑕不掩", post: "。" },
+      { char: "說", radical: "言", component: "兌", bopomofo: "ㄕㄨㄛ", mean: "講話。", pre: "老師正在", post: "故事。" },
+      { char: "地", radical: "土", component: "也", bopomofo: "ㄉㄧˋ", mean: "地球表面。", pre: "大家一起坐在草", post: "上野餐。" },
+      { char: "得", radical: "彳", component: "㝵", bopomofo: "ㄉㄜˊ", mean: "獲取。", pre: "這次考試我考", post: "了一百分。" },
+      { char: "過", radical: "辶", component: "咼", bopomofo: "ㄍㄨㄛˋ", mean: "經過。", pre: "每天上學都會經", post: "公園。" },
+      { char: "後", radical: "彳", component: "幺", bopomofo: "ㄏㄡˋ", mean: "後面。", pre: "放學", post: "我喜歡去公園玩。" },
+      { char: "都", radical: "阝", component: "者", bopomofo: "ㄉㄡ", mean: "全部、都市。", pre: "台北是一個繁華的大", post: "市。" },
+      { char: "很", radical: "彳", component: "艮", bopomofo: "ㄏㄣˇ", mean: "非常。", pre: "這塊草莓蛋糕", post: "好吃。" },
+      { char: "物", radical: "牜", component: "勿", bopomofo: "ㄨˋ", mean: "東西、事理。", pre: "我們週末去動", post: "園看大象。" },
+      { char: "那", radical: "阝", component: "冄", bopomofo: "ㄋㄚˋ", mean: "指稱不特定的人、事、物。", pre: "請把", post: "本書拿給我。" },
+      { char: "想", radical: "心", component: "相", bopomofo: "ㄒㄧㄤˇ", mean: "思索、希望。", pre: "長大後我", post: "當一名太空人。" },
+      { char: "種", radical: "禾", component: "重", bopomofo: "ㄓㄨㄥˇ", mean: "栽植、種子。", pre: "農夫在田裡播", post: "。" },
+      { char: "開", radical: "門", component: "幵", bopomofo: "ㄎㄞ", mean: "打開。", pre: "請把窗戶打", post: "通風。" },
+      { char: "關", radical: "門", component: "𢇇", bopomofo: "ㄍㄨㄢ", mean: "掩閉、事物相連涉。", pre: "他們兩人的", post: "係非常好。" },
+      { char: "現", radical: "王", component: "見", bopomofo: "ㄒㄧㄢˋ", mean: "現在、顯露。", pre: "我", post: "在就要去寫功課。" },
+      { char: "做", radical: "亻", component: "故", bopomofo: "ㄗㄨㄛˋ", mean: "進行。", pre: "大家一起來", post: "體操。" },
+      { char: "文", radical: "文", component: "乂", bopomofo: "ㄨㄣˊ", mean: "文字。", pre: "弟弟在學寫中", post: "字。" },
+      { char: "媽", radical: "女", component: "馬", bopomofo: "ㄇㄚ", mean: "母親。", pre: "我的", post: "媽非常溫柔。" },
+      { char: "明", radical: "日", component: "月", bopomofo: "ㄇㄧㄥˊ", mean: "光亮。", pre: "太陽出來了，四周很光", post: "。" },
+      { char: "行", radical: "彳", component: "亍", bopomofo: "ㄒㄧㄥˊ", mean: "走、做。", pre: "過馬路要走班馬線，注意", post: "車安全。" },
+      { char: "問", radical: "門", component: "口", bopomofo: "ㄨㄣˋ", mean: "詢問。", pre: "學生舉手向老師發", post: "。" },
+      { char: "意", radical: "心", component: "音", bopomofo: "ㄧˋ", mean: "心思、意義。", pre: "這本書的內容易懂而且很有", post: "思。" },
+      { char: "花", radical: "艹", component: "化", bopomofo: "ㄏㄨㄚ", mean: "花朵。", pre: "春天到了，花園裡開滿了", post: "。" },
+      { char: "快", radical: "忄", component: "夬", bopomofo: "ㄎㄨㄞˋ", mean: "速度高。", pre: "獵豹跑步的速度非常", post: "。" },
+      { char: "經", radical: "糸", component: "巠", bopomofo: "ㄐㄧㄥ", mean: "通過。", pre: "每天上學都會", post: "過公園。" },
+      { char: "活", radical: "氵", component: "舌", bopomofo: "ㄏㄨㄛˊ", mean: "有生命、不死。", pre: "這隻小狗非常", post: "潑。" },
+      { char: "校", radical: "木", component: "交", bopomofo: "ㄒㄧㄠˋ", mean: "教學的地方。", pre: "我每天早上背書包去學", post: "。" },
+      { char: "進", radical: "辶", component: "隹", bopomofo: "ㄐㄧㄣˋ", mean: "前進。", pre: "請大家排隊", post: "教室。" },
+      { char: "等", radical: "竹", component: "寺", bopomofo: "ㄉㄥˇ", mean: "候。", pre: "請在公車站", post: "公車。" },
+      { char: "部", radical: "阝", component: "咅", bopomofo: "ㄅㄨˋ", mean: "門類、單位。", pre: "他是學校籃球", post: "的一員。" },
+      { char: "課", radical: "言", component: "果", bopomofo: "ㄎㄜˋ", mean: "教學的科目。", pre: "放學後要記得寫功", post: "。" },
+      { char: "位", radical: "亻", component: "立", bopomofo: "ㄨㄟˋ", mean: "位置。", pre: "請大家回到自己的座", post: "。" },
+      { char: "間", radical: "門", component: "日", bopomofo: "ㄐㄧㄢ", mean: "中間。", pre: "我坐在爸爸和媽媽的中", post: "。" },
+      { char: "電", radical: "雨", component: "申", bopomofo: "ㄉㄧㄢˋ", mean: "電能。", pre: "停", post: "了，家裡一片漆黑。" },
+      { char: "話", radical: "言", component: "舌", bopomofo: "ㄏㄨㄚˋ", mean: "說出來的言語。", pre: "請大聲一點講", post: "。" },
+      { char: "打", radical: "扌", component: "丁", bopomofo: "ㄉㄚˇ", mean: "擊、敲。", pre: "哥哥在操場", post: "籃球。" },
+      { char: "海", radical: "氵", component: "每", bopomofo: "ㄏㄞˇ", mean: "大洋。", pre: "夏天我們去", post: "邊玩沙。" },
+      { char: "給", radical: "糸", component: "合", bopomofo: "ㄍㄟˇ", mean: "交付。", pre: "請把這本書交", post: "老師。" },
+      { char: "正", radical: "止", component: "一", bopomofo: "ㄓㄥˋ", mean: "不偏斜。", pre: "老師教我們要坐", post: "身體。" },
+      { char: "吃", radical: "口", component: "乞", bopomofo: "ㄔ", mean: "咀嚼食物。", pre: "肚子餓了，我們去", post: "飯。" },
+      { char: "習", radical: "羽", component: "白", bopomofo: "ㄒㄧˊ", mean: "學習。", pre: "我每天努力學", post: "新知識。" },
+      { char: "被", radical: "衤", component: "皮", bopomofo: "ㄅㄟˋ", mean: "覆蓋物。", pre: "睡覺時要蓋好棉", post: "以免著涼。" },
+      { char: "光", radical: "儿", component: "兀", bopomofo: "ㄍㄨㄤ", mean: "亮光。", pre: "太陽發出強烈的高", post: "。" },
+      { char: "情", radical: "忄", component: "青", bopomofo: "ㄑㄧㄥˊ", mean: "心理的感受。", pre: "今天我的心", post: "非常開心。" },
+      { char: "記", radical: "言", component: "己", bopomofo: "ㄐㄧˋ", mean: "把印象留在腦海裡。", pre: "千萬不要忘", post: "帶作業。" },
+      { char: "嗎", radical: "口", component: "馬", bopomofo: "ㄇㄚ", mean: "助詞，表示疑問。", pre: "你今天過得好", post: "？" },
+      { char: "答", radical: "竹", component: "合", bopomofo: "ㄉㄚˊ", mean: "回應。", pre: "我舉手回", post: "老師的問題。" },
+      { char: "特", radical: "牜", component: "寺", bopomofo: "ㄊㄜˋ", mean: "與眾不同。", pre: "這份生日禮物非常", post: "別。" },
+      { char: "球", radical: "王", component: "求", bopomofo: "ㄑㄧㄡˊ", mean: "圓形的立體物。", pre: "哥哥在操場上打籃", post: "。" },
+      { char: "理", radical: "王", component: "里", bopomofo: "ㄌㄧˇ", mean: "道理、管理。", pre: "我幫媽媽整", post: "房間。" },
+      { char: "路", radical: "足", component: "各", bopomofo: "ㄌㄨˋ", mean: "供人車行走的通道。", pre: "過馬", post: "要看紅綠燈。" },
+      { char: "住", radical: "亻", component: "主", bopomofo: "ㄓㄨˋ", mean: "居住。", pre: "我", post: "在美麗的城市裡。" },
+      { char: "許", radical: "言", component: "午", bopomofo: "ㄒㄩˇ", mean: "答應、答允。", pre: "我對著流星", post: "願。" },
+      { char: "造", radical: "辶", component: "告", bopomofo: "ㄗㄠˋ", mean: "製作。", pre: "工人們正在建", post: "新房子。" },
+      { char: "流", radical: "氵", component: "㐬", bopomofo: "ㄌㄧㄡˊ", mean: "水液移動。", pre: "水不停地向東", post: "動。" },
+      { char: "眼", radical: "目", component: "艮", bopomofo: "ㄧㄢˇ", mean: "視覺器官。", pre: "爺爺戴著一副老花", post: "鏡。" },
+      { char: "找", radical: "扌", component: "戈", bopomofo: "ㄓㄠˇ", mean: "尋覓。", pre: "我在", post: "遺失的鉛筆。" },
+      { char: "朋", radical: "月", component: "月", bopomofo: "ㄆㄥˊ", mean: "同伴。", pre: "我和好", post: "友一起玩遊戲。" },
+      { char: "神", radical: "礻", component: "申", bopomofo: "ㄕㄣˊ", mean: "傳說中的天神。", pre: "這座廟裡供奉著許多", post: "明。" },
+      { char: "吧", radical: "口", component: "巴", bopomofo: "ㄅㄚ", mean: "助詞，表示商量。", pre: "我們一起去公園玩", post: "！" },
+      { char: "陽", radical: "阝", component: "昜", bopomofo: "ㄧㄤˊ", mean: "太陽。", pre: "太", post: "從東方升起。" },
+      { char: "結", radical: "糸", component: "吉", bopomofo: "ㄐㄧㄝˊ", mean: "打結、收尾。", pre: "故事終於有了一個完美的", post: "局。" },
+      { char: "河", radical: "氵", component: "可", bopomofo: "ㄏㄜˊ", mean: "水流。", pre: "這條小", post: "裡有好多魚。" },
+      { char: "玩", radical: "王", component: "元", bopomofo: "ㄨㄢˊ", mean: "遊戲。", pre: "弟弟喜歡", post: "躲貓貓。" },
+      { char: "認", radical: "言", component: "忍", bopomofo: "ㄖㄣˋ", mean: "分辨、同意。", pre: "上課要", post: "真聽講。" },
+      { char: "詞", radical: "言", component: "司", bopomofo: "ㄘˊ", mean: "話語、單字。", pre: "這首歌的歌", post: "很感人。" },
+      { char: "近", radical: "辶", component: "斤", bopomofo: "ㄐㄧㄣˋ", mean: "距離短。", pre: "我家離學校很", post: "。" },
+      { char: "清", radical: "氵", component: "青", bopomofo: "ㄑㄧㄥ", mean: "潔淨、不混濁。", pre: "這杯水非常", post: "澈。" },
+      { char: "林", radical: "木", component: "木", bopomofo: "ㄌㄧㄣˊ", mean: "成片的樹木。", pre: "這裡有一大片森", post: "。" },
+      { char: "牠", radical: "牜", component: "也", bopomofo: "ㄊㄚ", mean: "動物的代名詞。", pre: "我養了一隻貓，", post: "非常可愛。" },
+      { char: "念", radical: "心", component: "今", bopomofo: "ㄋㄧㄢˋ", mean: "思念、讀。", pre: "奶奶非常思", post: "遠方的孫子。" },
+      { char: "線", radical: "糸", component: "泉", bopomofo: "ㄒㄧㄢˋ", mean: "細長像絲的東西。", pre: "放風箏需要很長的", post: "。" },
+      { char: "語", radical: "言", component: "吾", bopomofo: "ㄩˇ", mean: "話。", pre: "大家都在學習國", post: "。" },
+      { char: "網", radical: "糸", component: "罔", bopomofo: "ㄨㄤˇ", mean: "用線結成的捕抓工具。", pre: "蜘蛛結了一個很大的", post: "。" },
+      { char: "場", radical: "土", component: "昜", bopomofo: "ㄔㄤˇ", mean: "廣場。", pre: "哥哥在籃球", post: "上打球。" },
+      { char: "草", radical: "艹", component: "早", bopomofo: "ㄘㄠˇ", mean: "草本植物。", pre: "羊在青青的", post: "原上奔跑。" },
+      { char: "滿", radical: "氵", component: "㒼", bopomofo: "ㄇㄢˇ", mean: "充實、沒有空隙。", pre: "杯子裡的水裝", post: "了。" },
+      { char: "管", radical: "竹", component: "官", bopomofo: "ㄍㄨㄢˇ", mean: "圓柱形中空的物品；約束。", pre: "我用吸", post: "喝果汁。" },
+      { char: "往", radical: "彳", component: "主", bopomofo: "ㄨㄤˇ", mean: "去、過去。", pre: "火車開", post: "遙遠的城市。" },
+      { char: "除", radical: "阝", component: "余", bopomofo: "ㄔㄨˊ", mean: "去掉。", pre: "過年大掃除，把灰塵清", post: "乾淨。" },
+      { char: "科", radical: "禾", component: "斗", bopomofo: "ㄎㄜ", mean: "學術分類。", pre: "我最喜歡上自然", post: "學。" },
+      { char: "紅", radical: "糸", component: "工", bopomofo: "ㄏㄨㄥˊ", mean: "像血一樣的顏色。", pre: "蘋果是", post: "色的。" },
+      { char: "拉", radical: "扌", component: "立", bopomofo: "ㄌㄚ", mean: "用力扯。", pre: "拔河比賽大家用力", post: "繩子。" },
+      { char: "祝", radical: "礻", component: "兄", bopomofo: "ㄓㄨˋ", mean: "祈求平安。", pre: "大家一起", post: "我生日快樂。" },
+      { char: "城", radical: "土", component: "成", bopomofo: "ㄔㄥˊ", mean: "城市。", pre: "台北是一個繁華的大", post: "市。" },
+      { char: "較", radical: "車", component: "交", bopomofo: "ㄐㄧㄠˋ", mean: "相比。", pre: "這兩顆蘋果比", post: "起來，右邊的比較紅。" },
+      { char: "福", radical: "礻", component: "畐", bopomofo: "ㄈㄨˊ", mean: "幸運。", pre: "過年時門上會貼春聯和", post: "字。" },
+      { char: "格", radical: "木", component: "各", bopomofo: "ㄍㄜˊ", mean: "方塊形的空位。", pre: "請把字寫在", post: "子裡。" },
+      { char: "細", radical: "糸", component: "田", bopomofo: "ㄒㄧˋ", mean: "微小、不粗。", pre: "他做事非常", post: "心。" },
+      { char: "晚", radical: "日", component: "免", bopomofo: "ㄨㄢˇ", mean: "太陽落山後。", pre: "今天", post: "上的星星好漂亮。" },
+      { char: "苦", radical: "艹", component: "古", bopomofo: "ㄎㄨˇ", mean: "味道苦澀。", pre: "這碗中藥喝起來非常", post: "。" },
+      { char: "跑", radical: "足", component: "包", bopomofo: "ㄆㄠˇ", mean: "快速行走。", pre: "操場上有很多人在", post: "步。" },
+      { char: "落", radical: "艹", component: "洛", bopomofo: "ㄌㄨㄛˋ", mean: "掉下。", pre: "秋天時樹葉會掉", post: "下來。" },
+      { char: "輕", radical: "車", component: "巠", bopomofo: "ㄑㄧㄥ", mean: "不重。", pre: "這根羽毛非常", post: "。" },
+      { char: "根", radical: "木", component: "艮", bopomofo: "ㄍㄣ", mean: "植物的地下部分。", pre: "大樹的樹", post: "埋得很深。" },
+      { char: "轉", radical: "車", component: "專", bopomofo: "ㄓㄨㄢˇ", mean: "改變方向。", pre: "地球每天都在旋", post: "。" },
+      { char: "錢", radical: "金", component: "戔", bopomofo: "ㄑㄧㄢˊ", mean: "貨幣。", pre: "買東西需要付", post: "。" },
+      { char: "精", radical: "米", component: "青", bopomofo: "ㄐㄧㄥ", mean: "細緻、完美。", pre: "這件藝術品非常", post: "美。" },
+      { char: "呀", radical: "口", component: "牙", bopomofo: "ㄧㄚ", mean: "助詞，表示驚嘆。", pre: "哎", post: "！我不小心忘記了。" },
+      { char: "送", radical: "辶", component: "关", bopomofo: "ㄙㄨㄥˋ", mean: "遞送。", pre: "郵差叔叔來", post: "信了。" },
+      { char: "級", radical: "糸", component: "及", bopomofo: "ㄐㄧˊ", mean: "等級、班次。", pre: "我今年升上三年", post: "了。" },
+      { char: "怕", radical: "忄", component: "白", bopomofo: "ㄆㄚˋ", mean: "恐懼。", pre: "弟弟很害", post: "黑漆漆的房間。" },
+      { char: "程", radical: "禾", component: "呈", bopomofo: "ㄔㄥˊ", mean: "規矩、進度。", pre: "學習的過", post: "也非常重要。" },
+      { char: "忙", radical: "忄", component: "亡", bopomofo: "ㄇㄤˊ", mean: "事情多。", pre: "爸爸工作很", post: "碌。" },
+      { char: "跳", radical: "足", component: "兆", bopomofo: "ㄊㄧㄠˋ", mean: "騰空躍起。", pre: "青蛙在池塘邊", post: "來跳去。" },
+      { char: "鄉", radical: "阝", component: "𡩟", bopomofo: "ㄒㄧㄤ", mean: "郊外、居住的地方。", pre: "我的故", post: "在風景優美的山區。" },
+      { char: "娘", radical: "女", component: "良", bopomofo: "ㄋㄧㄤˊ", mean: "母親；年輕女子。", pre: "新", post: "子穿著美麗的婚紗。" },
+      { char: "假", radical: "亻", component: "叚", bopomofo: "ㄐㄧㄚˋ", mean: "放假。", pre: "週末我們全家去度", post: "。" },
+      { char: "怪", radical: "忄", component: "圣", bopomofo: "ㄍㄨㄞˋ", mean: "奇異的。", pre: "森林裡有奇", post: "的聲音。" },
+      { char: "環", radical: "王", component: "睘", bopomofo: "ㄏㄨㄢˊ", mean: "圓形物、圍繞。", pre: "我們應該愛護地球", post: "境。" },
+      { char: "禮", radical: "礻", component: "豊", bopomofo: "ㄌㄧˇ", mean: "儀式、贈品。", pre: "我收到了一份精美的生日", post: "物。" },
+      { char: "唱", radical: "口", component: "昌", bopomofo: "ㄔㄤˋ", mean: "發出悅耳的聲音。", pre: "妹妹在臺上大聲", post: "歌。" },
+      { char: "視", radical: "礻", component: "見", bopomofo: "ㄕˋ", mean: "看。", pre: "我每天看電", post: "卡通。" },
+      { char: "妹", radical: "女", component: "未", bopomofo: "ㄇㄟˋ", mean: "稱呼比自己年幼的同輩女子。", pre: "小", post: "喜歡玩洋娃娃。" },
+      { char: "板", radical: "木", component: "反", bopomofo: "ㄅㄢˇ", mean: "片狀的硬木。", pre: "老師在黑", post: "上寫字。" },
+      { char: "紙", radical: "糸", component: "氏", bopomofo: "ㄓˇ", mean: "寫字或畫畫的用品。", pre: "拿出一張白", post: "來畫畫。" },
+      { char: "錯", radical: "金", component: "昔", bopomofo: "ㄘㄨㄛˋ", mean: "不正確。", pre: "寫", post: "字要用橡皮擦擦掉。" },
+      { char: "奶", radical: "女", component: "乃", bopomofo: "ㄋㄞˇ", mean: "母親的乳汁；稱呼祖母。", pre: "我每天早上都會喝牛", post: "。" },
+      { char: "塊", radical: "土", component: "鬼", bopomofo: "ㄎㄨㄞˋ", mean: "團狀物。", pre: "請給我一", post: "美味的蛋糕。" },
+      { char: "燈", radical: "火", component: "登", bopomofo: "ㄉㄥ", mean: "照明的器具。", pre: "天黑了，請把電", post: "打開。" },
+      { char: "院", radical: "阝", component: "完", bopomofo: "ㄩㄢˋ", mean: "房屋。", pre: "我生病了，要去醫", post: "看醫生。" },
+      { char: "伯", radical: "亻", component: "白", bopomofo: "ㄅㄛˊ", mean: "伯父。", pre: "我的阿", post: "對我非常溫柔。" },
+      { char: "停", radical: "亻", component: "亭", bopomofo: "ㄊㄧㄥˊ", mean: "停止。", pre: "汽車", post: "在紅綠燈前。" },
+      { char: "訴", radical: "言", component: "斥", bopomofo: "ㄙㄨˋ", mean: "告訴。", pre: "把秘密告", post: "好朋友。" },
+      { char: "綠", radical: "糸", component: "彔", bopomofo: "ㄌㄩˋ", mean: "像草木一樣的顏色。", pre: "春天的草地一片翠", post: "。" },
+      { char: "雲", radical: "雨", component: "云", bopomofo: "ㄩㄣˊ", mean: "水氣。", pre: "天空中有許多白", post: "。" },
+      { char: "息", radical: "心", component: "自", bopomofo: "ㄒㄧˊ", mean: "呼吸、停止。", pre: "跑完步需要休", post: "一下。" },
+      { char: "狗", radical: "犭", component: "句", bopomofo: "ㄍㄡˇ", mean: "犬隻。", pre: "我家養了一隻可愛的小", post: "。" },
+      { char: "推", radical: "扌", component: "隹", bopomofo: "ㄊㄨㄟ", mean: "用力往前擠。", pre: "排隊時不可以", post: "擠別人。" },
+      { char: "館", radical: "食", component: "官", bopomofo: "ㄍㄨㄢˇ", mean: "公共場所。", pre: "週末我喜歡去圖書", post: "看書。" },
+      { char: "臉", radical: "月", component: "僉", bopomofo: "ㄌㄧㄢˇ", mean: "面部。", pre: "早上起床要記得洗", post: "。" },
+      { char: "社", radical: "礻", component: "土", bopomofo: "ㄕㄜˋ", mean: "團體。", pre: "學校裡有很多有趣的", post: "團。" },
+      { char: "慢", radical: "忄", component: "曼", bopomofo: "ㄇㄢˋ", mean: "速度低。", pre: "烏龜爬行的速度很", post: "。" },
+      { char: "睡", radical: "目", component: "垂", bopomofo: "ㄕㄨㄟˋ", mean: "閉眼休息。", pre: "晚上九點我就上床", post: "覺了。" },
+      { char: "需", radical: "雨", component: "而", bopomofo: "ㄒㄩ", mean: "需要。", pre: "植物生長", post: "要陽光和水。" },
+      { char: "震", radical: "雨", component: "辰", bopomofo: "ㄓㄣˋ", mean: "搖動。", pre: "剛才發生了可怕的地", post: "。" },
+      { char: "速", radical: "辶", component: "束", bopomofo: "ㄙㄨˋ", mean: "速度。", pre: "這輛高鐵的", post: "度非常快。" },
+      { char: "討", radical: "言", component: "寸", bopomofo: "ㄊㄠˇ", mean: "探究、索取。", pre: "大家一起開會", post: "論問題。" },
+      { char: "迷", radical: "辶", component: "米", bopomofo: "ㄇㄧˊ", mean: "迷失。", pre: "弟弟在百貨公司裡", post: "路了。" },
+      { char: "呼", radical: "口", component: "乎", bopomofo: "ㄏㄨ", mean: "吐氣、叫喚。", pre: "在森林裡深深地", post: "吸。" },
+      { char: "驚", radical: "馬", component: "敬", bopomofo: "ㄐㄧㄥ", mean: "害怕、出乎意料。", pre: "這份生日禮物給了我一個大", post: "喜。" },
+      { char: "健", radical: "亻", component: "建", bopomofo: "ㄐㄧㄢˋ", mean: "健康。", pre: "多吃蔬菜身體才會", post: "康。" },
+      { char: "維", radical: "糸", component: "隹", bopomofo: "ㄨㄟˊ", mean: "保持。", pre: "我們要", post: "持環境整潔。" },
+      { char: "待", radical: "彳", component: "寺", bopomofo: "ㄉㄞˋ", mean: "等候。", pre: "請在這裡稍", post: "一下。" },
+      { char: "飯", radical: "食", component: "反", bopomofo: "ㄈㄢˋ", mean: "米煮熟的食物。", pre: "中午我在學校吃營養午", post: "。" },
+      { char: "針", radical: "金", component: "十", bopomofo: "ㄓㄣ", mean: "縫衣用具。", pre: "護士阿姨幫我打", post: "。" },
+      { char: "枝", radical: "木", component: "支", bopomofo: "ㄓ", mean: "樹幹生出的條狀物。", pre: "小鳥揚在樹", post: "上。" },
+      { char: "睛", radical: "目", component: "青", bopomofo: "ㄐㄧㄥ", mean: "眼球。", pre: "兔子的眼", post: "是紅色的。" },
+      { char: "岩", radical: "山", component: "石", bopomofo: "ㄧㄢˊ", mean: "石頭。", pre: "海邊有許多奇形怪狀的", post: "石。" },
+      { char: "姑", radical: "女", component: "古", bopomofo: "ㄍㄨ", mean: "稱呼父親的姐妹。", pre: "過年時", post: "姑會發紅包給我。" },
+      { char: "確", radical: "石", component: "角", bopomofo: "ㄑㄩㄝˋ", mean: "真實、堅定。", pre: "請你", post: "認這件事情是不是真的。" },
+      { char: "休", radical: "亻", component: "木", bopomofo: "ㄒㄧㄡ", mean: "休息。", pre: "爺爺在樹下", post: "息。" },
+      { char: "喝", radical: "口", component: "曷", bopomofo: "ㄏㄜ", mean: "飲用液體。", pre: "口渴了想", post: "一杯冰水。" },
+      { char: "陸", radical: "阝", component: "坴", bopomofo: "ㄌㄨˋ", mean: "高出水面的地。", pre: "恐龍是生活在", post: "地上的動物。" },
+      { char: "鐘", radical: "金", component: "童", bopomofo: "ㄓㄨㄥ", mean: "計時器。", pre: "牆上的時", post: "指著十二點。" },
+      { char: "配", radical: "酉", component: "己", bopomofo: "ㄆㄟˋ", mean: "搭配。", pre: "紅色的衣服搭", post: "黑色的褲子很好看。" },
+      { char: "洞", radical: "氵", component: "同", bopomofo: "ㄉㄨㄥˋ", mean: "凹陷的深穴。", pre: "山裡面有一個大", post: "穴。" },
+      { char: "雪", radical: "雨", component: "彐", bopomofo: "ㄒㄩㄝˇ", mean: "冰晶。", pre: "寒流來了，高山上開始下", post: "。" },
+      { char: "簡", radical: "竹", component: "間", bopomofo: "ㄐㄧㄢˇ", mean: "不複雜。", pre: "這道數學題非常", post: "單。" },
+      { char: "貓", radical: "犭", component: "苗", bopomofo: "ㄇㄠ", mean: "貓科動物。", pre: "這隻白色的", post: "咪喜歡睡覺。" },
+      { char: "菜", radical: "艹", component: "采", bopomofo: "ㄘㄞˋ", mean: "蔬菜。", pre: "多吃蔬", post: "對身體好。" },
+      { char: "迎", radical: "辶", component: "卬", bopomofo: "ㄧㄥˊ", mean: "迎接。", pre: "我們在門口", post: "迎接客人。" },
+      { char: "露", radical: "雨", component: "路", bopomofo: "ㄌㄨˋ", mean: "露水。", pre: "草葉上沾滿了清晨的", post: "水。" },
+      { char: "鏡", radical: "金", component: "竟", bopomofo: "ㄐㄧㄥˋ", mean: "反射影像的器具。", pre: "出門前我會照一下", post: "子。" },
+      { char: "銀", radical: "金", component: "艮", bopomofo: "ㄧㄣˊ", mean: "金屬。", pre: "我們把錢存在", post: "行裡。" },
+      { char: "壞", radical: "土", component: "褱", bopomofo: "ㄏㄨㄞˋ", mean: "損毀。", pre: "我的玩具不小心摔", post: "了。" },
+      { char: "破", radical: "石", component: "皮", bopomofo: "ㄆㄛˋ", mean: "毀壞。", pre: "我不小心打", post: "了玻璃杯。" },
+      { char: "壁", radical: "土", component: "辟", bopomofo: "ㄅㄧˋ", mean: "牆壁。", pre: "教室的牆", post: "上掛著時鐘。" },
+      { char: "吹", radical: "口", component: "欠", bopomofo: "ㄔㄨㄟ", mean: "嘴巴呼氣。", pre: "用力把生日蠟燭", post: "熄。" },
+      { char: "防", radical: "阝", component: "方", bopomofo: "ㄈㄤˊ", mean: "戒備。", pre: "多吃水果可以預", post: "感冒。" },
+      { char: "珍", radical: "王", component: "㐱", bopomofo: "ㄓㄣ", mean: "寶貴的。", pre: "這是一顆美麗的", post: "珠。" },
+      { char: "昨", radical: "日", component: "乍", bopomofo: "ㄗㄨㄛˊ", mean: "過去的一天。", pre: "我", post: "天去動物園玩。" },
+      { char: "梅", radical: "木", component: "每", bopomofo: "ㄇㄟˊ", mean: "一種植物，冬天開花。", pre: "冬天到了，", post: "花開了。" },
+      { char: "粉", radical: "米", component: "分", bopomofo: "ㄈㄣˇ", mean: "細碎的末狀物。", pre: "麵包是用麵", post: "做的。" },
+      { char: "輪", radical: "車", component: "侖", bopomofo: "ㄌㄨㄣˊ", mean: "車輪。", pre: "腳踏車有兩個", post: "子。" },
+      { char: "洗", radical: "氵", component: "先", bopomofo: "ㄒㄧˇ", mean: "用水清除汙垢。", pre: "吃飯前要記得", post: "手。" },
+      { char: "桃", radical: "木", component: "兆", bopomofo: "ㄊㄠˊ", mean: "一種果樹。", pre: "媽媽給我吃櫻", post: "。" },
+      { char: "陣", radical: "阝", component: "車", bopomofo: "ㄓㄣˋ", mean: "軍隊排列、量詞。", pre: "天空中傳來一", post: "雷聲。" },
+      { char: "拍", radical: "扌", component: "白", bopomofo: "ㄆㄞ", mean: "用手掌輕擊。", pre: "大家一起開心", post: "手。" },
+      { char: "符", radical: "竹", component: "付", bopomofo: "ㄈㄨˊ", mean: "記號、標記。", pre: "樂譜上有很多音", post: "。" },
+      { char: "祖", radical: "礻", component: "且", bopomofo: "ㄗㄨˇ", mean: "祖先。", pre: "過節時我們會祭拜", post: "先。" },
+      { char: "森", radical: "木", component: "林", bopomofo: "ㄙㄣ", mean: "樹木多。", pre: "這裡有一大片", post: "林。" },
+      { char: "秋", radical: "禾", component: "火", bopomofo: "ㄑㄧㄡ", mean: "季節。", pre: "現在是", post: "天，天氣轉涼了。" },
+      { char: "移", radical: "禾", component: "多", bopomofo: "ㄧˊ", mean: "改變位置。", pre: "請幫我把這張桌子", post: "動一下。" },
+      { char: "暖", radical: "日", component: "爰", bopomofo: "ㄋㄨㄢˇ", mean: "溫和不冷。", pre: "冬天的太陽曬起來很溫", post: "。" },
+      { char: "杯", radical: "木", component: "不", bopomofo: "ㄅㄟ", mean: "盛裝液體的器具。", pre: "請給我一", post: "溫水。" },
+      { char: "暗", radical: "日", component: "音", bopomofo: "ㄢˋ", mean: "光線不足。", pre: "關燈後房間裡非常黑", post: "。" },
+      { char: "猴", radical: "犭", component: "侯", bopomofo: "ㄏㄡˊ", mean: "靈長類動物。", pre: "樹上有一隻調皮的", post: "子。" },
+      { char: "忍", radical: "心", component: "刃", bopomofo: "ㄖㄣˇ", mean: "克制。", pre: "打針會痛，要", post: "耐一下。" },
+      { char: "茶", radical: "艹", component: "余", bopomofo: "ㄔㄚˊ", mean: "飲料。", pre: "爺爺喜歡泡", post: "喝。" },
+      { char: "聞", radical: "門", component: "耳", bopomofo: "ㄨㄣˊ", mean: "聽見、嗅覺。", pre: "我", post: "到廚房傳來香味。" },
+      { char: "箱", radical: "竹", component: "相", bopomofo: "ㄒㄧㄤ", mean: "裝東西的方形器具。", pre: "請把玩具收進紙", post: "裡。" },
+      { char: "堆", radical: "土", component: "隹", bopomofo: "ㄉㄨㄟ", mean: "聚積。", pre: "孩子們在沙灘上", post: "沙堡。" },
+      { char: "姐", radical: "女", component: "且", bopomofo: "ㄐㄧㄝˇ", mean: "稱呼比自己年長的同輩女子。", pre: "大", post: "帶裝去公園玩。" },
+      { char: "閃", radical: "門", component: "人", bopomofo: "ㄕㄢˇ", mean: "躲避、發光。", pre: "天上", post: "爍著明亮的星星。" },
+      { char: "醒", radical: "酉", component: "星", bopomofo: "ㄒㄧㄥˇ", mean: "睡眠狀態結束。", pre: "早上鬧鐘響了，我就", post: "來了。" },
+      { char: "豬", radical: "犭", component: "者", bopomofo: "ㄓㄨ", mean: "哺乳動物。", pre: "農場裡養了幾隻胖嘟嘟的小", post: "。" },
+      { char: "蛇", radical: "虫", component: "它", bopomofo: "ㄕㄜˊ", mean: "爬蟲類。", pre: "草叢裡躲著一條綠色的長", post: "。" },
+      { char: "妙", radical: "女", component: "少", bopomofo: "ㄇㄧㄠˋ", mean: "神奇、美好。", pre: "這真是一個奇", post: "的主意。" },
+      { char: "懂", radical: "忄", component: "董", bopomofo: "ㄉㄨㄥˇ", mean: "明白、了解。", pre: "老師講的課我聽", post: "了。" },
+      { char: "伴", radical: "亻", component: "半", bopomofo: "ㄅㄢˋ", mean: "陪伴。", pre: "狗狗是我最好的玩", post: "。" },
+      { char: "珠", radical: "王", component: "朱", bopomofo: "ㄓㄨ", mean: "圓形的寶物。", pre: "媽媽的項鍊上有一顆大真", post: "。" },
+      { char: "冰", radical: "冫", component: "水", bopomofo: "ㄅㄧㄥ", mean: "水凍結成的固體。", pre: "夏天吃", post: "棒最消暑了。" },
+      { char: "降", radical: "阝", component: "夅", bopomofo: "ㄐㄧㄤˋ", mean: "落下。", pre: "冬天高山上會", post: "下白雪。" },
+      { char: "鮮", radical: "魚", component: "羊", bopomofo: "ㄒㄧㄢ", mean: "新鮮。", pre: "這盤生魚片非常新", post: "。" },
+      { char: "軟", radical: "車", component: "欠", bopomofo: "ㄖㄨㄢˇ", mean: "不硬。", pre: "這塊麵包吃起來很鬆", post: "。" },
+      { char: "距", radical: "足", component: "巨", bopomofo: "ㄐㄩˋ", mean: "兩者相隔的長度。", pre: "我家離學校的", post: "離很近。" },
+      { char: "抱", radical: "扌", component: "包", bopomofo: "ㄅㄠˋ", mean: "用手臂圍繞。", pre: "弟弟開心地", post: "著娃娃。" },
+      { char: "抓", radical: "扌", component: "爪", bopomofo: "ㄓㄨㄚ", mean: "用手或爪子擒取。", pre: "警察把小偷", post: "住了。" },
+      { char: "婚", radical: "女", component: "昏", bopomofo: "ㄏㄨㄣ", mean: "男女結為夫妻。", pre: "叔叔明天要結", post: "了。" },
+      { char: "逃", radical: "辶", component: "兆", bopomofo: "ㄊㄠˊ", mean: "逃跑。", pre: "小老鼠看到貓就", post: "跑了。" },
+      { char: "浪", radical: "氵", component: "良", bopomofo: "ㄌㄤˋ", mean: "水面起伏的波濤。", pre: "海上的波", post: "非常大。" },
+      { char: "銅", radical: "金", component: "同", bopomofo: "ㄊㄨㄥˊ", mean: "金屬。", pre: "第一名拿金牌，第三名拿", post: "牌。" },
+      { char: "貼", radical: "貝", component: "占", bopomofo: "ㄊㄧㄝ", mean: "黏合。", pre: "妹妹收集了很多可愛的", post: "紙。" },
+      { char: "箭", radical: "竹", component: "前", bopomofo: "ㄐㄧㄢˋ", mean: "搭在弓上發射的武器。", pre: "他射出了一支弓", post: "。" },
+      { char: "橋", radical: "木", component: "喬", bopomofo: "ㄑㄧㄠˊ", mean: "架在水面或空中的通道。", pre: "我們走過這座木", post: "。" },
+      { char: "限", radical: "阝", component: "艮", bopomofo: "ㄒㄧㄢˋ", mean: "範圍。", pre: "這個遊樂設施有身高", post: "制。" },
+      { char: "猜", radical: "犭", component: "青", bopomofo: "ㄘㄞ", mean: "推測。", pre: "你", post: "看看我的手裡藏了什麼？" },
+      { char: "悟", radical: "忄", component: "吾", bopomofo: "ㄨˋ", mean: "明白、覺醒。", pre: "聽完老師的話，我恍然大", post: "。" },
+      { char: "獵", radical: "犭", component: "巤", bopomofo: "ㄌㄧㄝˋ", mean: "捕捉動物。", pre: "山上的", post: "人帶著弓箭去打獵。" },
+      { char: "財", radical: "貝", component: "才", bopomofo: "ㄘㄞˊ", mean: "金錢或物資。", pre: "努力工作才能累積", post: "富。" },
+      { char: "翻", radical: "羽", component: "番", bopomofo: "ㄈㄢ", mean: "越過、轉動。", pre: "哥哥喜歡", post: "閱百科全書。" },
+      { char: "抽", radical: "扌", component: "由", bopomofo: "ㄔㄡ", mean: "從中取出。", pre: "請從盒子裡", post: "一張衛生紙。" },
+      { char: "膠", radical: "月", component: "翏", bopomofo: "ㄐㄧㄠ", mean: "有黏性的物質。", pre: "我用", post: "水把紙黏起來。" },
+      { char: "汽", radical: "氵", component: "气", bopomofo: "ㄑㄧˋ", mean: "液體受熱變成的氣體。", pre: "天氣熱想喝", post: "水。" },
+      { char: "肥", radical: "月", component: "巴", bopomofo: "ㄈㄟˊ", mean: "胖。", pre: "農場裡養了一群", post: "豬。" },
+      { char: "雷", radical: "雨", component: "田", bopomofo: "ㄌㄟˊ", mean: "雷聲。", pre: "下大雨前常常會打", post: "。" },
+      { char: "狼", radical: "犭", component: "良", bopomofo: "ㄌㄤˊ", mean: "犬科動物。", pre: "森林裡傳來野", post: "的叫聲。" },
+      { char: "糖", radical: "米", component: "唐", bopomofo: "ㄊㄤˊ", mean: "甜的食品。", pre: "我最喜歡吃棒棒", post: "。" },
+      { char: "折", radical: "扌", component: "斤", bopomofo: "ㄓㄜˊ", mean: "弄斷或彎曲。", pre: "我把色紙", post: "成飛機。" },
+      { char: "招", radical: "扌", component: "召", bopomofo: "ㄓㄠ", mean: "舉手示意。", pre: "對著遠方的朋友", post: "手。" },
+      { char: "敗", radical: "貝", component: "攴", bopomofo: "ㄅㄞˋ", mean: "輸。", pre: "比賽失", post: "了不要灰心。" },
+      { char: "獅", radical: "犭", component: "師", bopomofo: "ㄕ", mean: "大型貓科動物。", pre: "動物園裡有威武的", post: "子。" },
+      { char: "退", radical: "辶", component: "艮", bopomofo: "ㄊㄨㄟˋ", mean: "後退。", pre: "遇到危險要趕快後", post: "。" },
+      { char: "粗", radical: "米", component: "且", bopomofo: "ㄘㄨ", mean: "不細。", pre: "這根拔河的繩子非常", post: "。" },
+      { char: "腿", radical: "月", component: "退", bopomofo: "ㄊㄨㄟˇ", mean: "下肢。", pre: "青蛙的後", post: "很有力氣。" },
+      { char: "喊", radical: "口", component: "咸", bopomofo: "ㄏㄢˇ", mean: "大聲叫。", pre: "在山上大聲地", post: "叫。" },
+      { char: "補", radical: "衤", component: "甫", bopomofo: "ㄅㄨˇ", mean: "修理破爛。", pre: "奶奶幫我把衣服破掉的地方", post: "好。" },
+      { char: "阻", radical: "阝", component: "且", bopomofo: "ㄗㄨˇ", mean: "擋住。", pre: "大石頭", post: "擋了我們的去路。" },
+      { char: "磁", radical: "石", component: "茲", bopomofo: "ㄘˊ", mean: "能吸引鐵的物質。", pre: "冰箱上貼著很多", post: "鐵。" },
+      { char: "鴨", radical: "鳥", component: "甲", bopomofo: "ㄧㄚ", mean: "水禽。", pre: "池塘裡有幾隻黃色小", post: "。" },
+      { char: "翅", radical: "羽", component: "支", bopomofo: "ㄔˋ", mean: "鳥類的飛行器官。", pre: "小鳥展開雙", post: "飛向天空。" },
+      { char: "蛙", radical: "虫", component: "圭", bopomofo: "ㄨㄚ", mean: "兩棲動物。", pre: "池塘邊有青", post: "在唱歌。" },
+      { char: "騎", radical: "馬", component: "奇", bopomofo: "ㄑㄧˊ", mean: "跨坐前進。", pre: "週末我喜歡去", post: "腳踏車。" },
+      { char: "芳", radical: "艹", component: "方", bopomofo: "ㄈㄤ", mean: "香氣。", pre: "花朵散發出迷人的", post: "香。" },
+      { char: "秒", radical: "禾", component: "少", bopomofo: "ㄇㄧㄠˇ", mean: "時間單位。", pre: "時鐘滴答滴答走了一", post: "。" },
+      { char: "霧", radical: "雨", component: "務", bopomofo: "ㄨˋ", mean: "水氣。", pre: "清晨的森林裡充滿了白", post: "。" },
+      { char: "碰", radical: "石", component: "並", bopomofo: "ㄆㄥˋ", mean: "接觸、撞擊。", pre: "走路要小心，不要", post: "到桌角。" },
+      { char: "炮", radical: "火", component: "包", bopomofo: "ㄆㄠˋ", mean: "爆裂物。", pre: "過年到了，大家一起放鞭", post: "。" },
+      { char: "礦", radical: "石", component: "廣", bopomofo: "ㄎㄨㄤˋ", mean: "地底下的天然資源。", pre: "工人在", post: "坑裡挖煤炭。" },
+      { char: "闊", radical: "門", component: "活", bopomofo: "ㄎㄨㄛˋ", mean: "寬廣。", pre: "操場非常寬", post: "，適合跑步。" },
+      { char: "埋", radical: "土", component: "里", bopomofo: "ㄇㄞˊ", mean: "藏在土裡。", pre: "小狗把骨頭", post: "在院子裡。" },
+      { char: "徐", radical: "彳", component: "余", bopomofo: "ㄒㄩˊ", mean: "慢慢地。", pre: "微風", post: "徐吹來，感覺很舒服。" },
+      { char: "椅", radical: "木", component: "奇", bopomofo: "ㄧˇ", mean: "供人坐的家具。", pre: "請坐在這張木", post: "上。" },
+      { char: "飽", radical: "食", component: "包", bopomofo: "ㄅㄠˇ", mean: "肚子不餓。", pre: "我吃得好", post: "，肚子圓滾滾的。" },
+      { char: "蟻", radical: "虫", component: "義", bopomofo: "ㄧˇ", mean: "昆蟲。", pre: "地上有一群螞", post: "在搬食物。" },
+      { char: "吐", radical: "口", component: "土", bopomofo: "ㄊㄨˇ", mean: "東西從嘴裡湧出。", pre: "生病覺得不舒服想", post: "。" },
+      { char: "飾", radical: "食", component: "巾", bopomofo: "ㄕˋ", mean: "裝扮。", pre: "聖誕樹上掛滿了美麗的裝", post: "品。" },
+      { char: "帽", radical: "巾", component: "冒", bopomofo: "ㄇㄠˋ", mean: "戴在頭上的衣物。", pre: "天氣冷，我戴上一頂毛線", post: "。" },
+      { char: "零", radical: "雨", component: "令", bopomofo: "ㄌㄧㄥˊ", mean: "數目空無。", pre: "我的考試分數絕對不會是", post: "分。" },
+      { char: "芽", radical: "艹", component: "牙", bopomofo: "ㄧㄚˊ", mean: "植物初生的莖葉。", pre: "春天到了，樹木發出新", post: "。" },
+      { char: "軸", radical: "車", component: "由", bopomofo: "ㄓㄡˊ", mean: "穿在輪子中間的圓柱。", pre: "地球有一根看不見的地", post: "。" },
+      { char: "咬", radical: "口", component: "交", bopomofo: "ㄧㄠˇ", mean: "用牙齒夾住或切斷。", pre: "小狗嘴裡", post: "著一根骨頭。" },
+      { char: "猛", radical: "犭", component: "孟", bopomofo: "ㄇㄥˇ", mean: "兇惡、強烈。", pre: "獅子是一種非常兇", post: "的動物。" },
+      { char: "蜂", radical: "虫", component: "夆", bopomofo: "ㄈㄥ", mean: "昆蟲。", pre: "蜜", post: "在花叢中採花蜜。" },
+      { char: "翠", radical: "羽", component: "卒", bopomofo: "ㄘㄨㄟˋ", mean: "青綠色。", pre: "山上一片", post: "綠的風景。" },
+      { char: "吵", radical: "口", component: "少", bopomofo: "ㄔㄠˇ", mean: "聲音嘈雜。", pre: "圖書館裡不要大聲", post: "鬧。" },
+      { char: "翁", radical: "羽", component: "公", bopomofo: "ㄨㄥ", mean: "老頭子。", pre: "那位老", post: "正在公園散步。" },
+      { char: "騙", radical: "馬", component: "扁", bopomofo: "ㄆㄧㄢˋ", mean: "欺瞞。", pre: "不誠實的小孩喜歡", post: "人。" },
+      { char: "腸", radical: "月", component: "昜", bopomofo: "ㄔㄤˊ", mean: "消化器官。", pre: "早餐吃了一根香", post: "。" },
+      { char: "牧", radical: "牜", component: "攵", bopomofo: "ㄇㄨˋ", mean: "放養牲畜。", pre: "廣闊的草原上有一座", post: "場。" },
+      { char: "幅", radical: "巾", component: "畐", bopomofo: "ㄈㄨˊ", mean: "量詞。", pre: "牆上掛著一", post: "美麗的風景畫。" },
+      { char: "晴", radical: "日", component: "青", bopomofo: "ㄑㄧㄥˊ", mean: "天氣良好。", pre: "天氣好", post: "朗，去散步吧！" },
+      { char: "翔", radical: "羽", component: "羊", bopomofo: "ㄒㄧㄤˊ", mean: "飛翔。", pre: "老鷹在大海上飛", post: "。" },
+      { char: "瑞", radical: "王", component: "耑", bopomofo: "ㄖㄨㄟˋ", mean: "吉祥。", pre: "外面正在下著吉祥的", post: "雪。" },
+      { char: "蚊", radical: "虫", component: "文", bopomofo: "ㄨㄣˊ", mean: "昆蟲。", pre: "夏天很容易被", post: "子叮咬。" },
+      { char: "閉", radical: "門", component: "才", bopomofo: "ㄅㄧˋ", mean: "關閉。", pre: "睡覺前要把眼睛", post: "上。" },
+      { char: "鳴", radical: "鳥", component: "口", bopomofo: "ㄇㄧㄥˊ", mean: "鳥叫。", pre: "清晨聽到鳥兒在", post: "叫。" },
+      { char: "怒", radical: "心", component: "奴", bopomofo: "ㄋㄨˋ", mean: "生氣。", pre: "做錯事惹得媽媽生氣發", post: "了。" },
+      { char: "餅", radical: "食", component: "并", bopomofo: "ㄅㄧㄥˇ", mean: "用麵粉等做成的食品。", pre: "下午茶吃了一片好吃的", post: "乾。" },
+      { char: "郊", radical: "阝", component: "交", bopomofo: "ㄐㄧㄠ", mean: "城市的四周。", pre: "週末我們去", post: "外踏青。" },
+      { char: "汁", radical: "氵", component: "十", bopomofo: "ㄓ", mean: "含有水分的液體。", pre: "我喜歡喝蘋果", post: "。" },
+      { char: "蝦", radical: "虫", component: "叚", bopomofo: "ㄒㄧㄚ", mean: "水生動物。", pre: "晚餐有我最愛吃的炸", post: "。" },
+      { char: "飲", radical: "食", component: "欠", bopomofo: "ㄧㄣˇ", mean: "喝。", pre: "請多喝水，少喝含糖", post: "料。" },
+      { char: "拖", radical: "扌", component: "也", bopomofo: "ㄊㄨㄛ", mean: "拉著走。", pre: "拿著", post: "把把地板擦乾淨。" },
+      { char: "翼", radical: "羽", component: "異", bopomofo: "ㄧˋ", mean: "翅膀。", pre: "這架飛機有機", post: "。" },
+      { char: "恨", radical: "忄", component: "艮", bopomofo: "ㄏㄣˋ", mean: "怨怒。", pre: "我們要原諒別人，不要心懷怨", post: "。" },
+      { char: "釘", radical: "金", component: "丁", bopomofo: "ㄉㄧㄥ", mean: "固定用具。", pre: "爸爸用鐵鎚把", post: "子敲進木板。" },
+      { char: "狐", radical: "犭", component: "瓜", bopomofo: "ㄏㄨˊ", mean: "犬科動物。", pre: "故事裡有一隻聰明的", post: "狸。" },
+      { char: "峽", radical: "山", component: "夾", bopomofo: "ㄒㄧㄚˊ", mean: "兩山之間的水道。", pre: "太魯閣", post: "谷的風景非常壯觀。" },
+      { char: "崇", radical: "山", component: "宗", bopomofo: "ㄔㄨㄥˊ", mean: "尊敬、高大。", pre: "他是一位令人", post: "敬的老師。" },
+      { char: "煮", radical: "灬", component: "者", bopomofo: "ㄓㄨˇ", mean: "烹調食物。", pre: "媽媽在廚房裡", post: "湯。" },
+      { char: "踏", radical: "足", component: "沓", bopomofo: "ㄊㄚˋ", mean: "踩。", pre: "春暖花開，適合去郊外", post: "青。" },
+      { char: "虹", radical: "虫", component: "工", bopomofo: "ㄏㄨㄥˊ", mean: "光學現象。", pre: "下雨過後天空出現了彩", post: "。" },
+      { char: "悶", radical: "門", component: "心", bopomofo: "ㄇㄣ", mean: "心情不舒暢。", pre: "待在沒有冷氣的房間很", post: "熱。" },
+      { char: "鄭", radical: "阝", component: "奠", bopomofo: "ㄓㄥˋ", mean: "姓氏。", pre: "這是一位姓", post: "的先生。" },
+      { char: "笨", radical: "竹", component: "本", bopomofo: "ㄅㄣˋ", mean: "不聰明。", pre: "我才不", post: "，我只是需要多練習。" },
+      { char: "橘", radical: "木", component: "矞", bopomofo: "ㄐㄩˊ", mean: "一種水果。", pre: "冬天最適合吃", post: "子。" },
+      { char: "郭", radical: "阝", component: "享", bopomofo: "ㄍㄨㄛ", mean: "姓氏、外城。", pre: "這道圍牆是古城的", post: "。" },
+      { char: "胖", radical: "月", component: "半", bopomofo: "ㄆㄤˋ", mean: "肥肉多。", pre: "那隻橘貓長得很", post: "。" },
+      { char: "粽", radical: "米", component: "宗", bopomofo: "ㄗㄨㄥˋ", mean: "端午節食品。", pre: "端午節我們要吃肉", post: "。" },
+      { char: "純", radical: "糸", component: "屯", bopomofo: "ㄔㄨㄣˊ", mean: "不雜。", pre: "這杯水非常乾淨", post: "潔。" },
+      { char: "笛", radical: "竹", component: "由", bopomofo: "ㄉㄧˊ", mean: "一種樂器。", pre: "哥哥會吹直", post: "。" },
+      { char: "峰", radical: "山", component: "夆", bopomofo: "ㄈㄥ", mean: "高而尖的山頭。", pre: "我們努力爬上山", post: "。" },
+      { char: "膽", radical: "月", component: "詹", bopomofo: "ㄉㄢˇ", mean: "勇氣。", pre: "弟弟的", post: "子很小，怕黑。" },
+      { char: "碗", radical: "石", component: "宛", bopomofo: "ㄨㄢˇ", mean: "盛裝食物的器具。", pre: "我吃了一大", post: "白飯。" },
+      { char: "駛", radical: "馬", component: "史", bopomofo: "ㄕˇ", mean: "駕駛。", pre: "司機叔叔駕", post: "著大公車。" },
+      { char: "徹", radical: "彳", component: "育攵", bopomofo: "ㄔㄜˋ", mean: "通透、到底。", pre: "我們必須將這個問題查個", post: "底。" },
+      { char: "輛", radical: "車", component: "兩", bopomofo: "ㄌㄧㄤˋ", mean: "計算車子的單位。", pre: "馬路上停了一", post: "紅色的汽車。" },
+      { char: "糟", radical: "米", component: "曹", bopomofo: "ㄗㄠ", mean: "壞、不好。", pre: "哎呀！這下子", post: "糕了。" },
+      { char: "盼", radical: "目", component: "分", bopomofo: "ㄆㄢˋ", mean: "希望。", pre: "大家都很期", post: "明天的校外教學。" },
+      { char: "苗", radical: "艹", component: "田", bopomofo: "ㄇㄧㄠˊ", mean: "初生的植物。", pre: "農夫在田裡插秧種", post: "。" },
+      { char: "踢", radical: "足", component: "易", bopomofo: "ㄊㄧ", mean: "用腳碰擊。", pre: "我們在公園裡", post: "足球。" },
+      { char: "祈", radical: "礻", component: "斤", bopomofo: "ㄑㄧˊ", mean: "求神。", pre: "我們在心裡", post: "禱世界和平。" },
+      { char: "秘", radical: "禾", component: "必", bopomofo: "ㄇㄧˋ", mean: "不公開的。", pre: "這是我和小明的", post: "密。" },
+      { char: "帳", radical: "巾", component: "長", bopomofo: "ㄓㄤˋ", mean: "遮蔽的布幕。", pre: "我們去露營時睡在", post: "篷裡。" },
+      { char: "慰", radical: "心", component: "尉", bopomofo: "ㄨㄟˋ", mean: "安撫。", pre: "朋友受傷了，我去安", post: "他。" },
+      { char: "邦", radical: "阝", component: "丰", bopomofo: "ㄅㄤ", mean: "國家。", pre: "他在那裡建立了一個鄰", post: "友好關係。" },
+      { char: "駕", radical: "馬", component: "加", bopomofo: "ㄐㄧㄚˋ", mean: "操縱車船。", pre: "爸爸開車的", post: "術很好。" },
+      { char: "醉", radical: "酉", component: "卒", bopomofo: "ㄗㄨㄟˋ", mean: "飲酒過量。", pre: "爸爸喝了太多酒，喝", post: "了。" },
+      { char: "帆", radical: "巾", component: "凡", bopomofo: "ㄈㄢˊ", mean: "掛在桅杆上的布。", pre: "海面上有一艘白色的", post: "船。" },
+      { char: "炸", radical: "火", component: "乍", bopomofo: "ㄓㄚˋ", mean: "用大量滾油烹熟食物。", pre: "我最喜歡吃香脆的", post: "雞。" },
+      { char: "瞪", radical: "目", component: "登", bopomofo: "ㄉㄥˋ", mean: "用力睜大眼睛看。", pre: "他生氣地", post: "了我一眼。" },
+      { char: "糧", radical: "米", component: "量", bopomofo: "ㄌㄧㄤˊ", mean: "食物。", pre: "農夫在穀倉裡儲存了許多食", post: "。" },
+      { char: "鴉", radical: "鳥", component: "牙", bopomofo: "ㄧㄚ", mean: "鳥類。", pre: "全身黑色的鳥叫做烏", post: "。" },
+      { char: "鱷", radical: "魚", component: "咢", bopomofo: "ㄜˋ", mean: "爬蟲類。", pre: "沼澤裡藏著凶猛的", post: "魚。" },
+      { char: "蛛", radical: "虫", component: "朱", bopomofo: "ㄓㄨ", mean: "節肢動物。", pre: "那隻大蜘", post: "結了一個很大的網。" },
+      { char: "牲", radical: "牜", component: "生", bopomofo: "ㄕㄥ", mean: "供祭祀或食用的家畜。", pre: "農場裡飼養了許多", post: "畜。" },
+      { char: "愁", radical: "心", component: "秋", bopomofo: "ㄔㄡˊ", mean: "憂慮。", pre: "他看起來滿面哀", post: "的樣子。" },
+      { char: "跨", radical: "足", component: "夸", bopomofo: "ㄎㄨㄚˋ", mean: "邁步越過。", pre: "過年時大家一起參加", post: "年晚會。" },
+      { char: "賺", radical: "貝", component: "兼", bopomofo: "ㄓㄨㄢˋ", mean: "獲得利益。", pre: "他做生意", post: "了很多錢。" },
+      { char: "眠", radical: "目", component: "民", bopomofo: "ㄇㄧㄢˊ", mean: "睡覺。", pre: "春天的天氣讓人想冬", post: "。" },
+      { char: "購", radical: "貝", component: "冓", bopomofo: "ㄍㄡˋ", mean: "買。", pre: "我們去超級市場", post: "買食物。" },
+      { char: "糊", radical: "米", component: "胡", bopomofo: "ㄏㄨˊ", mean: "黏稠狀、不清。", pre: "我不小心把圖畫弄", post: "了。" },
+      { char: "跌", radical: "足", component: "失", bopomofo: "ㄉㄧㄝˊ", mean: "摔倒。", pre: "弟弟跑步不小心", post: "倒了。" },
+      { char: "跪", radical: "足", component: "危", bopomofo: "ㄍㄨㄟˋ", mean: "雙膝著地。", pre: "小羊", post: "下來喝媽媽的奶。" },
+      { char: "鯊", radical: "魚", component: "沙", bopomofo: "ㄕㄚ", mean: "海洋魚類。", pre: "海洋裡有可怕的大白", post: "。" },
+      { char: "悔", radical: "忄", component: "每", bopomofo: "ㄏㄨㄟˇ", mean: "事後懊惱。", pre: "做錯事會感到很後", post: "。" },
+      { char: "賜", radical: "貝", component: "易", bopomofo: "ㄙˋ", mean: "上位者給下位者。", pre: "國王賞", post: "了許多金銀珠寶。" },
+      { char: "酷", radical: "酉", component: "告", bopomofo: "ㄎㄨˋ", mean: "極點、帥氣。", pre: "他戴著墨鏡的樣子非常", post: "。" },
+      { char: "鴿", radical: "鳥", component: "合", bopomofo: "ㄍㄜ", mean: "鳥類。", pre: "廣場上有很多溫馴的", post: "子。" },
+      { char: "帕", radical: "巾", component: "白", bopomofo: "ㄆㄚˋ", mean: "手絹。", pre: "擦汗時可以用手", post: "。" },
+      { char: "烤", radical: "火", component: "考", bopomofo: "ㄎㄠˇ", mean: "用火烘熟。", pre: "中秋節全家人一起", post: "肉。" },
+      { char: "釣", radical: "金", component: "勺", bopomofo: "ㄉㄧㄠˋ", mean: "捕捉魚類。", pre: "週末我和爸爸去河邊", post: "魚。" },
+      { char: "蜘", radical: "虫", component: "知", bopomofo: "ㄓ", mean: "節肢動物。", pre: "牆角有一隻大", post: "蛛。" },
+      { char: "軌", radical: "車", component: "九", bopomofo: "ㄍㄨㄟˇ", mean: "車行走的路線。", pre: "火車在鐵", post: "上行駛。" },
+      { char: "邱", radical: "阝", component: "丘", bopomofo: "ㄑㄧㄡ", mean: "姓氏。", pre: "這位是我的朋友", post: "先生。" },
+      { char: "牡", radical: "牜", component: "土", bopomofo: "ㄇㄨˇ", mean: "雄性的。", pre: "春天開滿了美麗的", post: "丹花。" },
+      { char: "嬌", radical: "女", component: "喬", bopomofo: "ㄐㄧㄠ", mean: "柔弱可愛。", pre: "這朵小花看起來非常", post: "弱。" },
+      { char: "褐", radical: "衤", component: "曷", bopomofo: "ㄏㄜˊ", mean: "顏色的一種。", pre: "這隻小狗的毛是", post: "色的。" },
+      { char: "霜", radical: "雨", component: "相", bopomofo: "ㄕㄨㄤ", mean: "水氣凝結的冰晶。", pre: "冬天的早晨，樹葉上結了冰", post: "。" },
+      { char: "嶺", radical: "山", component: "領", bopomofo: "ㄌㄧㄥˇ", mean: "連綿的山。", pre: "這座山脈翻山越", post: "非常辛苦。" },
+      { char: "裙", radical: "衤", component: "君", bopomofo: "ㄑㄩㄣˊ", mean: "女子的下裳。", pre: "妹妹穿著一件紅色的洋", post: "。" },
+      { char: "禍", radical: "礻", component: "咼", bopomofo: "ㄏㄨㄛˋ", mean: "災難。", pre: "他不小心打破花瓶，闖下了大", post: "。" },
+      { char: "崖", radical: "山", component: "厓", bopomofo: "ㄧㄚˊ", mean: "陡立的山邊。", pre: "站在懸", post: "邊要注意安全。" },
+      { char: "鱗", radical: "魚", component: "粦", bopomofo: "ㄌㄧㄣˊ", mean: "魚身上的薄片。", pre: "魚的身上長滿了閃亮的魚", post: "。" },
+      { char: "彷", radical: "彳", component: "方", bopomofo: "ㄈㄤˇ", mean: "似乎。", pre: "這個風景美得", post: "彿一幅畫。" },
+      { char: "犧", radical: "牜", component: "羲", bopomofo: "ㄒㄧ", mean: "祭祀用的純色牲畜。", pre: "消防員為了救人而", post: "牲了自己。" },
+      { char: "鄧", radical: "阝", component: "登", bopomofo: "ㄉㄥˋ", mean: "姓氏。", pre: "她是台灣著名的歌星", post: "麗君。" },
+      { char: "飼", radical: "食", component: "司", bopomofo: "ㄙˋ", mean: "餵養。", pre: "農場主人正在", post: "養小雞。" },
+      { char: "裕", radical: "衤", component: "谷", bopomofo: "ㄩˋ", mean: "豐富。", pre: "他努力工作，過著富", post: "的生活。" },
+      { char: "踩", radical: "足", component: "采", bopomofo: "ㄘㄞˇ", mean: "腳底接觸物品。", pre: "我不小心", post: "到了水坑。" },
+      { char: "秤", radical: "禾", component: "平", bopomofo: "ㄔㄥˋ", mean: "量重量的器具。", pre: "老闆用磅", post: "量水果的重量。" },
+      { char: "閣", radical: "門", component: "各", bopomofo: "ㄍㄜˊ", mean: "樓房。", pre: "妹妹的房間在小", post: "樓裡。" },
+      { char: "拆", radical: "扌", component: "斥", bopomofo: "ㄔㄞ", mean: "解開、毀壞。", pre: "生日時開心", post: "禮物。" },
+      { char: "炒", radical: "火", component: "少", bopomofo: "ㄔㄠˇ", mean: "一種烹調法。", pre: "媽媽煮了一盤", post: "飯。" },
+      { char: "轎", radical: "車", component: "喬", bopomofo: "ㄐㄧㄠˋ", mean: "由人抬著走的交通工具。", pre: "古代新娘結婚會坐花", post: "。" },
+      { char: "碑", radical: "石", component: "卑", bopomofo: "ㄅㄟ", mean: "刻上文字的石頭。", pre: "公園裡有一座紀念", post: "。" },
+      { char: "緯", radical: "糸", component: "韋", bopomofo: "ㄨㄟˇ", mean: "橫線。", pre: "地球儀上有經線和", post: "線。" },
+      { char: "饒", radical: "食", component: "堯", bopomofo: "ㄖㄠˊ", mean: "寬恕、豐足。", pre: "這桌菜真是豐沛富", post: "。" },
+      { char: "崩", radical: "山", component: "朋", bopomofo: "ㄅㄥ", mean: "倒塌。", pre: "大雨造成了土石流和山", post: "。" },
+      { char: "鯨", radical: "魚", component: "京", bopomofo: "ㄐㄧㄥ", mean: "海洋哺乳類。", pre: "海洋裡體型最大的是", post: "魚。" },
+      { char: "駐", radical: "馬", component: "主", bopomofo: "ㄓㄨˋ", mean: "停留。", pre: "軍隊", post: "守在邊防。" },
+      { char: "袖", radical: "衤", component: "由", bopomofo: "ㄒㄧㄡˋ", mean: "衣服穿在手臂的部分。", pre: "天氣熱，我把衣", post: "捲起來。" },
+      { char: "鵑", radical: "鳥", component: "肙", bopomofo: "ㄐㄩㄢ", mean: "鳥類。", pre: "春天山上開滿了杜", post: "花。" },
+      { char: "租", radical: "禾", component: "且", bopomofo: "ㄗㄨ", mean: "借用。", pre: "我們去海邊", post: "了一輛腳踏車。" },
+      { char: "酥", radical: "酉", component: "禾", bopomofo: "ㄙㄨ", mean: "鬆脆。", pre: "這塊鳳梨", post: "非常香脆好吃。" },
+      { char: "炭", radical: "山", component: "灰", bopomofo: "ㄊㄢˋ", mean: "燒過的木材。", pre: "中秋節烤肉我們需要買木", post: "。" },
+      { char: "旺", radical: "日", component: "王", bopomofo: "ㄨㄤˋ", mean: "盛大的樣子。", pre: "這家店的生意非常興", post: "。" },
+      { char: "盲", radical: "目", component: "亡", bopomofo: "ㄇㄤˊ", mean: "看不見。", pre: "我們應該幫助", post: "人過馬路。" },
+      { char: "眶", radical: "目", component: "匡", bopomofo: "ㄎㄨㄤ", mean: "眼睛的四周。", pre: "感動的淚水在她的眼", post: "裡打轉。" },
+      { char: "烘", radical: "火", component: "共", bopomofo: "ㄏㄨㄥ", mean: "用火烤乾。", pre: "剛用", post: "箱烤出來的麵包好香。" },
+      { char: "酬", radical: "酉", component: "州", bopomofo: "ㄔㄡˊ", mean: "報答。", pre: "他努力工作，獲得了豐厚的報", post: "。" },
+      { char: "販", radical: "貝", component: "反", bopomofo: "ㄈㄢˋ", mean: "賣東西。", pre: "市場裡有很多", post: "賣水果的商人。" },
+      { char: "翹", radical: "羽", component: "堯", bopomofo: "ㄑㄧㄠˊ", mean: "抬起、特出。", pre: "他高高地", post: "起二郎腿。" },
+      { char: "鷗", radical: "鳥", component: "區", bopomofo: "ㄡ", mean: "海鳥。", pre: "海", post: "在蔚藍的大海上飛翔。" },
+      { char: "駝", radical: "馬", component: "它", bopomofo: "ㄊㄨㄛˊ", mean: "駱駝。", pre: "沙漠裡有許多駱", post: "。" },
+      { char: "肝", radical: "月", component: "干", bopomofo: "ㄍㄢ", mean: "內臟器官。", pre: "不要熬夜，要好好保護", post: "臟。" },
+      { char: "轍", radical: "車", component: "育攵", bopomofo: "ㄓㄜˊ", mean: "車輪壓過的痕跡。", pre: "這輛車在泥地上留下了深深的車", post: "。" },
+      { char: "翩", radical: "羽", component: "扁", bopomofo: "ㄆㄧㄢ", mean: "飛舞的樣子。", pre: "蝴蝶在花叢中", post: "起舞。" },
+      { char: "鵬", radical: "鳥", component: "朋", bopomofo: "ㄆㄥˊ", mean: "傳說中的大鳥。", pre: "傳說中有一種巨大的鳥叫做大", post: "鳥。" },
+      { char: "碩", radical: "石", component: "頁", bopomofo: "ㄕㄨㄛˋ", mean: "大。", pre: "這顆蘋果非常", post: "大。" },
+      { char: "稅", radical: "禾", component: "兌", bopomofo: "ㄕㄨㄟˋ", mean: "國家徵收的錢。", pre: "買東西時要繳納營業", post: "。" },
+      { char: "賠", radical: "貝", component: "咅", bopomofo: "ㄆㄟˊ", mean: "補償損失。", pre: "打破別人的東西要", post: "償。" },
+      { char: "鴕", radical: "鳥", component: "它", bopomofo: "ㄊㄨㄛˊ", mean: "大型鳥類。", pre: "動物園裡有跑得很快的", post: "鳥。" },
+      { char: "曬", radical: "日", component: "麗", bopomofo: "ㄕㄞˋ", mean: "在陽光下吸收光和熱。", pre: "洗好的衣服要拿去", post: "太陽。" },
+      { char: "盯", radical: "目", component: "丁", bopomofo: "ㄉㄧㄥ", mean: "注視。", pre: "小貓緊緊", post: "著那條魚。" },
+      { char: "鮭", radical: "魚", component: "圭", bopomofo: "ㄍㄨㄟ", mean: "魚類。", pre: "我很喜歡吃", post: "魚壽司。" },
+      { char: "幟", radical: "巾", component: "戠", bopomofo: "ㄓˋ", mean: "旗子。", pre: "城堡上飄揚著鮮豔的旗", post: "。" },
+      { char: "崎", radical: "山", component: "奇", bopomofo: "ㄑㄧˊ", mean: "高低不平。", pre: "這條山路非常", post: "嶇難行。" },
+      { char: "鄒", radical: "阝", component: "芻", bopomofo: "ㄗㄡ", mean: "姓氏。", pre: "這家店的老闆姓", post: "。" },
+      { char: "眩", radical: "目", component: "玄", bopomofo: "ㄒㄩㄢˋ", mean: "眼睛昏花。", pre: "太陽太大，讓我感到頭暈目", post: "。" },
+      { char: "幢", radical: "巾", component: "童", bopomofo: "ㄔㄨㄤˊ", mean: "量詞。", pre: "那裡新建立了一", post: "高樓大廈。" },
+      { char: "翡", radical: "羽", component: "非", bopomofo: "ㄈㄟˇ", mean: "硬玉。", pre: "這是一只美麗的", post: "翠手鐲。" },
+      { char: "鄙", radical: "阝", component: "啚", bopomofo: "ㄅㄧˇ", mean: "輕視、低下。", pre: "我們不應該", post: "視不如自己的人。" },
+      { char: "襪", radical: "衤", component: "蔑", bopomofo: "ㄨㄚˋ", mean: "穿在腳上的衣物。", pre: "出門前要記得穿上", post: "子。" },
+      { char: "撤", radical: "扌", component: "育攵", bopomofo: "ㄔㄜˋ", mean: "除去、退卻。", pre: "軍隊接到了", post: "退的命令。" },
+      { char: "犢", radical: "牜", component: "賣", bopomofo: "ㄉㄨˊ", mean: "小牛。", pre: "常言道：初生之", post: "不畏虎。" },
+      { char: "帖", radical: "巾", component: "占", bopomofo: "ㄊㄧㄝˇ", mean: "字帖。", pre: "他每天都會練習寫書法字", post: "。" },
+      { char: "裸", radical: "衤", component: "果", bopomofo: "ㄌㄨㄛˇ", mean: "露出。", pre: "國王其實全身赤", post: "，什麼都沒穿。" },
+      { char: "餃", radical: "食", component: "交", bopomofo: "ㄐㄧㄠˇ", mean: "有餡的麵食。", pre: "過年時大家會一起包水", post: "。" },
+      { char: "衫", radical: "衤", component: "彡", bopomofo: "ㄕㄢ", mean: "單衣。", pre: "夏天我喜歡穿短袖襯", post: "。" },
+      { char: "褲", radical: "衤", component: "庫", bopomofo: "ㄎㄨˋ", mean: "穿在下半身的服裝。", pre: "我今天穿了一件新長", post: "。" },
+      { char: "嶇", radical: "山", component: "區", bopomofo: "ㄑㄩ", mean: "山路不平。", pre: "這條山路非常崎", post: "。" },
+      { char: "郝", radical: "阝", component: "赤", bopomofo: "ㄏㄠˇ", mean: "姓氏。", pre: "他的名字是", post: "明義。" },
+      { char: "鮑", radical: "魚", component: "包", bopomofo: "ㄅㄠˋ", mean: "海產。", pre: "喜宴上有一道美味的", post: "魚。" },
+      { char: "醋", radical: "酉", component: "昔", bopomofo: "ㄘㄨˋ", mean: "酸味的調味料。", pre: "吃水餃時我喜歡加一點黑", post: "。" },
+      { char: "駿", radical: "馬", component: "夋", bopomofo: "ㄐㄩㄣˋ", mean: "良馬。", pre: "草原上跑過一匹", post: "馬。" },
+      { char: "邵", radical: "阝", component: "召", bopomofo: "ㄕㄠˋ", mean: "姓氏。", pre: "他是我們學校有名的", post: "老師。" },
+      { char: "驛", radical: "馬", component: "睪", bopomofo: "ㄧˋ", mean: "古代供傳遞公文的人休息換馬的地方。", pre: "古代送信的人會在這座", post: "站休息。" },
+      { char: "鯽", radical: "魚", component: "即", bopomofo: "ㄐㄧˋ", mean: "淡水魚。", pre: "爺爺在河邊釣到一條", post: "魚。" },
+      { char: "醇", radical: "酉", component: "享", bopomofo: "ㄔㄨㄣˊ", mean: "氣味濃厚。", pre: "這杯咖啡的味道非常香", post: "。" },
+      { char: "鳩", radical: "鳥", component: "九", bopomofo: "ㄐㄧㄡ", mean: "鳥類。", pre: "斑", post: "的叫聲很特別。" },
+      { char: "鯉", radical: "魚", component: "里", bopomofo: "ㄌㄧˇ", mean: "淡水魚。", pre: "池塘裡有很多紅色的", post: "魚。" },
+      { char: "酌", radical: "酉", component: "勺", bopomofo: "ㄓㄨㄛˊ", mean: "飲酒、考慮。", pre: "請大家幫忙斟", post: "一下這個計畫。" },
+      { char: "幀", radical: "巾", component: "貞", bopomofo: "ㄓㄥˋ", mean: "量詞。", pre: "這", post: "照片拍得非常清楚。" },
+      { char: "邢", radical: "阝", component: "幵", bopomofo: "ㄒㄧㄥˊ", mean: "姓氏、地名。", pre: "這位同學姓", post: "。" },
+      { char: "幌", radical: "巾", component: "晃", bopomofo: "ㄏㄨㄤˇ", mean: "遮蔽物、欺騙。", pre: "家店的招牌只是一個", post: "子。" },
+      { char: "犒", radical: "牜", component: "高", bopomofo: "ㄎㄠˋ", mean: "慰勞。", pre: "老闆請客", post: "賞辛苦的員工。" },
+      { char: "關", radical: "門", component: "𢇇", bopomofo: "ㄍㄨㄢ", mean: "掩閉、事物相連涉。", pre: "他們兩人的", post: "係非常好。" }
+    ];
+
+    // ==========================================
+    // 💡 重要：程式化自動標籤系統
+    // ==========================================
+    // 內部自動去重，確保字庫純淨穩定
+    const UNIQUE_WORD_DATA = Array.from(new Map(RAW_WORD_DATA.map(item => [item.char, item])).values());
+
+    const WORD_DATA = UNIQUE_WORD_DATA.map((item, index) => {
+      let level, levelLabel, levelColor;
+      const pos = index + 1;
+
+      if (pos <= 250) {
+        level = 1;
+        levelLabel = "最常用字";
+        levelColor = "bg-blue-500";
+      } else if (pos <= 350) {
+        level = 2;
+        levelLabel = "常用字";
+        levelColor = "bg-green-500";
+      } else {
+        level = 3;
+        levelLabel = "一般用字";
+        levelColor = "bg-purple-600";
+      }
+
+      return { ...item, level, levelLabel, levelColor };
+    });
+
+    const ALL_RADICALS = [...new Set(WORD_DATA.map(w => w.radical))];
+    const ALL_COMPONENTS = [...new Set(WORD_DATA.map(w => w.component))];
+
+    // ==========================================
+    // 字典部首說明與常用字注音擴充
+    // ==========================================
+    const RADICAL_DESC = {
+      "氵": "與水有關",
+      "木": "樹木、木材",
+      "扌": "手部動作",
+      "口": "嘴巴、發聲",
+      "日": "太陽、時間",
+      "火": "火焰、熱能",
+      "忄": "心理、情感",
+      "貝": "金錢、財物",
+      "糸": "絲線、紡織",
+      "言": "說話、語言",
+      "亻": "人物相關",
+      "辶": "行走、道路",
+      "艹": "植物、草本",
+      "門": "門戶、建築",
+      "雨": "天氣、降水",
+      "虫": "昆蟲、爬蟲",
+      "土": "土地、泥土",
+      "鳥": "鳥類、飛禽",
+      "魚": "魚類、水產",
+      "金": "金屬、刀具",
+      "女": "女性相關",
+      "石": "石頭、礦物",
+      "竹": "竹子、製品",
+      "月": "器官、月亮",
+      "目": "眼睛、觀看",
+      "足": "腳部、行走",
+      "車": "車輛、運輸",
+      "馬": "馬匹、騎乘",
+      "食": "食物、飲食",
+      "心": "思想、情感",
+      "禾": "穀物、農作",
+      "米": "米糧、糧食",
+      "衤": "衣服、布料",
+      "礻": "祭祀、神明",
+      "犭": "犬類、野獸",
+      "巾": "布帛、布料",
+      "酉": "酒類、發酵",
+      "王": "美玉、珍寶",
+      "彳": "行走、步伐",
+      "阝": "地形、城邑",
+      "山": "山脈、地形",
+      "牜": "牛隻、牲畜",
+      "灬": "火焰、加熱",
+      "冫": "冰雪、寒冷",
+      "止": "腳步、停止",
+      "儿": "下方的人",
+      "文": "文字、花紋",
+      "羽": "鳥羽、飛翔",
+      "黃": "黃色相關"
+    };
+
+    // 常見介詞與未在字庫中的補充注音
+    const COMMON_ZHUYIN = {
+      "的":"ㄉㄜ˙", "是":"ㄕˋ", "我":"ㄨㄛˇ", "了":"ㄌㄜ˙", "在":"ㄗㄞˋ", "有":"ㄧㄡˇ", "個":"ㄍㄜ˙", "人":"ㄖㄣˊ",
+      "這":"ㄓㄜˋ", "上":"ㄕㄤˋ", "們":"ㄇㄣ˙", "來":"ㄌㄞˊ", "到":"ㄉㄠˋ", "大":"ㄉㄚˋ", "裡":"ㄌㄧˇ", "說":"ㄕㄨㄛ",
+      "去":"ㄑㄩˋ", "子":"ㄗˇ", "好":"ㄏㄠˇ", "你":"ㄋㄧˇ", "要":"ㄧㄠˋ", "看":"ㄎㄢˋ", "起":"ㄑㄧˇ", "也":"ㄧㄝˇ",
+      "和":"ㄏㄢˋ", "那":"ㄋㄚˋ", "小":"ㄒㄧㄠˇ", "為":"ㄨㄟˋ", "多":"ㄉㄨㄛ", "下":"ㄒㄧㄚˋ", "會":"ㄏㄨㄟˋ",
+      "可":"ㄎㄜˇ", "只":"ㄓˇ", "而":"ㄦˊ", "對":"ㄉㄨㄟˋ", "能":"ㄋㄥˊ", "當":"ㄉㄤ", "學":"ㄒㄩㄝˊ", "如":"ㄖㄨˊ",
+      "以":"ㄧˇ", "經":"ㄐㄧㄥ", "家":"ㄐㄧㄚ", "著":"ㄓㄜ˙", "他":"ㄊㄚ", "她":"ㄊㄚ", "它":"ㄊㄚ", "爸":"ㄅㄚˋ",
+      "哥":"ㄍㄜ", "弟":"ㄉㄧˋ", "飛":"ㄈㄟ", "機":"ㄐㄧ", "筆":"ㄅㄧˇ", "麼":"ㄇㄜ˙", "什":"ㄕㄣˊ", "怎":"ㄗㄣˇ",
+      "樣":"ㄧㄤˋ", "條":"ㄊㄧㄠˊ", "魚":"ㄩˊ", "杯":"ㄅㄟ", "水":"ㄕㄨㄟˇ", "非":"ㄈㄟ", "常":"ㄔㄤˊ", "吃":"ㄔ",
+      "飯":"ㄈㄢˋ", "前":"ㄑㄧㄢˊ", "記":"ㄐㄧˋ", "手":"ㄕㄡˇ", "夏":"ㄒㄧㄚˋ", "天":"ㄊㄧㄢ", "邊":"ㄅㄧㄢ",
+      "玩":"ㄨㄢˊ", "沙":"ㄕㄚ", "跑":"ㄆㄠˇ", "步":"ㄅㄨˋ", "流":"ㄌㄧㄡˊ", "很":"ㄏㄣˇ", "喜":"ㄒㄧˇ", "歡":"ㄏㄨㄢ",
+      "喝":"ㄏㄜ", "蘋":"ㄆㄧㄣˊ", "果":"ㄍㄨㄛˇ", "熱":"ㄖㄜˋ", "山":"ㄕㄢ", "一":"ㄧ", "穴":"ㄒㄩㄝˋ", "隻":"ㄓ",
+      "潑":"ㄆㄛ", "不":"ㄅㄨˋ", "停":"ㄊㄧㄥˊ", "向":"ㄒㄧㄤˋ", "東":"ㄉㄨㄥ", "動":"ㄉㄨㄥˋ", "海":"ㄏㄞˇ",
+      "波":"ㄅㄛ", "裝":"ㄓㄨㄤ", "媽":"ㄇㄚ", "給":"ㄍㄟˇ", "櫻":"ㄧㄥ", "片":"ㄆㄧㄢˋ", "森":"ㄙㄣ", "鳥":"ㄋㄧㄠˇ",
+      "樹":"ㄕㄨˋ", "請":"ㄑㄧㄥˇ", "溫":"ㄨㄣ", "老":"ㄌㄠˇ", "師":"ㄕ", "黑":"ㄏㄟ", "寫":"ㄒㄧㄝˇ", "字":"ㄗˋ",
+      "埋":"ㄇㄞˊ", "深":"ㄕㄣ", "把":"ㄅㄚˇ", "每":"ㄇㄟˇ", "早":"ㄗㄠˇ", "背":"ㄅㄟ", "書":"ㄕㄨ", "包":"ㄅㄠ",
+      "冬":"ㄉㄨㄥ", "開":"ㄎㄞ", "坐":"ㄗㄨㄛˋ", "張":"ㄓㄤ", "木":"ㄇㄨˋ", "走":"ㄗㄡˇ", "座":"ㄗㄨㄛˋ",
+      "最":"ㄗㄨㄟˋ", "適":"ㄕˋ", "合":"ㄏㄜˊ", "心":"ㄒㄧㄣ", "娃":"ㄨㄚˊ", "操":"ㄘㄠ", "場":"ㄔㄤˇ", "籃":"ㄌㄢˊ",
+      "齊":"ㄑㄧˊ", "遺":"ㄧˊ", "失":"ㄕ", "鉛":"ㄑㄧㄢ", "警":"ㄐㄧㄥˇ", "察":"ㄘㄚˊ", "偷":"ㄊㄡ", "色":"ㄙㄜˋ",
+      "紙":"ㄓˇ", "從":"ㄘㄨㄥˊ", "盒":"ㄏㄜˊ", "抽":"ㄔㄡ", "衛":"ㄨㄟˋ", "生":"ㄕㄥ", "日":"ㄖˋ", "禮":"ㄌㄧˇ",
+      "拿":"ㄋㄚˊ", "擦":"ㄘㄚ", "乾":"ㄍㄢ", "淨":"ㄐㄧㄥˋ", "方":"ㄈㄤ", "排":"ㄆㄞˊ", "隊":"ㄉㄨㄟˋ", "擠":"ㄐㄧˇ",
+      "別":"ㄅㄧㄝˊ", "拔":"ㄅㄚˊ", "賽":"ㄙㄞˋ", "用":"ㄩㄥˋ", "力":"ㄌㄧˋ", "繩":"ㄕㄥˊ", "圖":"ㄊㄨˊ", "館":"ㄍㄨㄢˇ",
+      "聲":"ㄕㄥ", "鬧":"ㄋㄠˋ", "肚":"ㄉㄨˋ", "餓":"ㄜˋ", "覺":"ㄐㄩㄝˊ", "舒":"ㄕㄨ", "服":"ㄈㄨˊ", "熄":"ㄒㄧˊ",
+      "吸":"ㄒㄧ", "骨":"ㄍㄨˇ", "頭":"ㄊㄡˊ", "妹":"ㄇㄟˋ", "臺":"ㄊㄞˊ", "歌":"ㄍㄜ", "口":"ㄎㄡˇ", "渴":"ㄎㄜˇ",
+      "冰":"ㄅㄧㄥ", "叫":"ㄐㄧㄠˋ", "今":"ㄐㄧㄣ", "哎":"ㄞ", "忘":"ㄨㄤˋ", "公":"ㄍㄨㄥ", "園":"ㄩㄢˊ", "朗":"ㄌㄤˇ",
+      "散":"ㄙㄢˋ", "四":"ㄙˋ", "周":"ㄓㄡ", "昨":"ㄗㄨㄛˊ", "星":"ㄒㄧㄥ", "漂":"ㄆㄧㄠˋ", "亮":"ㄌㄧㄤˋ", "關":"ㄍㄨㄢ",
+      "房":"ㄈㄤˊ", "曬":"ㄕㄞˋ", "店":"ㄉㄧㄢˋ", "興":"ㄒㄧㄥ", "電":"ㄉㄧㄢˋ", "盤":"ㄆㄢˊ", "年":"ㄋㄧㄢˊ", "放":"ㄈㄤˋ",
+      "鞭":"ㄅㄧㄢ", "脆":"ㄘㄨㄟˋ", "雞":"ㄐㄧ", "全":"ㄑㄩㄢˊ", "剛":"ㄍㄤ", "箱":"ㄒㄧㄤ", "麵":"ㄇㄧㄢˋ", "香":"ㄒㄧㄤ",
+      "災":"ㄗㄞ", "冒":"ㄇㄠˋ", "出":"ㄔㄨ", "濃":"ㄋㄨㄥˊ", "柴":"ㄔㄞˊ", "錯":"ㄘㄨㄛˋ", "事":"ㄕˋ", "惹":"ㄖㄜˇ", "幫":"ㄅㄤ"
+    };
+
+    // 全域注音字典 (合併 WORD_DATA 裡的字與 COMMON_ZHUYIN)
+    const GLOBAL_ZHUYIN_DICT = { ...COMMON_ZHUYIN };
+    WORD_DATA.forEach(w => {
+      if (!GLOBAL_ZHUYIN_DICT[w.char]) {
+        GLOBAL_ZHUYIN_DICT[w.char] = w.bopomofo;
+      }
+    });
+
+    // ==========================================
+    // 智慧文字結構辨識系統
+    // ==========================================
+    const getWordLayout = (char, radical) => {
+      // 將門部加入上部首陣列中，讓所有的門部字自動顯示為上部首下偏旁
+      const topRadicals = ["雨", "竹", "艹", "門"];
+      const topRadicalChars = ["早", "旱", "晨", "景", "運", "崩", "崇", "崖", "炭", "岩", "魯", "習", "翠", "翡", "翼", "森", "李", "正"];
+      
+      const bottomRadicals = ["心", "灬"];
+      const bottomRadicalChars = ["普", "智", "暫", "災", "炎", "壁", "塵", "鷺", "鴛", "鴦", "鯊", "姿", "盲", "駕", "驚", "翁"];
+      
+      const rightRadicalChars = ["那", "邦", "部", "都", "鄉", "郵", "鄰", "郊", "郁", "鄙", "邱", "邵", "邢", "郝", "郭", "鄒", "鄧", "鄭"];
+
+      if (topRadicals.includes(radical) || topRadicalChars.includes(char)) {
+        return { layout: 'tb', radPos: 'top' };
+      }
+      if (bottomRadicals.includes(radical) || bottomRadicalChars.includes(char)) {
+        return { layout: 'tb', radPos: 'bottom' };
+      }
+      if (rightRadicalChars.includes(char)) {
+        return { layout: 'lr', radPos: 'right' };
+      }
+      
+      return { layout: 'lr', radPos: 'left' };
+    };
+
+    // ==========================================
+    // 共用元件：專業直式注音排版
+    // ==========================================
+    const VerticalZhuyin = ({ bopomofo, size = "md" }) => {
+      if (!bopomofo) return null;
+      const chars = bopomofo.split('');
+      const tone = chars.find(c => ['ˊ', 'ˇ', 'ˋ', '˙'].includes(c));
+      const phonetics = chars.filter(c => !['ˊ', 'ˇ', 'ˋ', '˙'].includes(c));
+      const sizeClasses = { xs: "text-xs md:text-sm", sm: "text-sm md:text-base", md: "text-lg", lg: "text-2xl" };
+
+      return (
+        <div className={`relative inline-flex flex-col items-center justify-center font-sans ${sizeClasses[size]}`}>
+          {tone === '˙' && <span className="absolute -top-[0.9em] text-[0.8em] leading-none">˙</span>}
+          <div className="flex flex-col items-center leading-tight tracking-widest">
+            {phonetics.map((c, idx) => <span key={idx} className="block text-[1em]">{c}</span>)}
+          </div>
+          {tone && tone !== '˙' && (
+             <span className="absolute top-1/2 -right-[0.8em] -translate-y-1/2 text-[0.9em] leading-none">{tone}</span>
+          )}
+        </div>
+      );
+    };
+
+    // ==========================================
+    // 共用元件：動態渲染帶注音的句子片段
+    // ==========================================
+    const SentencePart = ({ text, showZhuyin }) => {
+      return (
+        <span className="inline-flex flex-wrap items-end whitespace-pre-wrap">
+          {text.split('').map((char, idx) => {
+            const isPunctuation = /[，。！？、；：「」『』]/.test(char);
+            const zhuyin = GLOBAL_ZHUYIN_DICT[char];
+            
+            // 開啟注音且該字有注音，並排除標點符號時
+            if (showZhuyin && zhuyin && !isPunctuation) {
+              return (
+                <span key={idx} className="inline-flex items-end mx-[1px] md:mx-[2px] leading-none">
+                  <span className="text-2xl md:text-4xl pb-[2px]">{char}</span>
+                  <span className="ml-[1px] pb-[4px]">
+                    <VerticalZhuyin bopomofo={zhuyin} size="xs" />
+                  </span>
+                </span>
+              );
+            }
+            // 否則只顯示文字
+            return <span key={idx} className="leading-none pb-[2px]">{char}</span>;
+          })}
+        </span>
+      );
+    };
+
+    // ==========================================
+    // 共用元件：內嵌互動雙拼框
+    // ==========================================
+    const InteractiveWordSlot = ({ 
+      char, bopomofo, isRevealed, 
+      slotRadical, slotComponent, 
+      onClearRadical, onClearComponent, 
+      status, radicalAns, componentAns 
+    }) => {
+      const layoutInfo = getWordLayout(char, radicalAns);
+      const isTB = layoutInfo.layout === 'tb';
+      const isRadTop = layoutInfo.radPos === 'top';
+      const isRadRight = layoutInfo.radPos === 'right';
+
+      const renderSlot = (type, val, ans, onClick, label, positionClasses) => {
+        const activeColor = type === 'radical' ? 'bg-blue-100 border-blue-400 text-blue-700' : 'bg-green-100 border-green-400 text-green-700';
+        const textSize = isTB ? "text-xl md:text-3xl leading-none" : "text-2xl md:text-4xl";
+        return (
+          <div onClick={onClick} className={`flex items-center justify-center font-bold cursor-pointer transition-all ${positionClasses}
+              ${val ? `${activeColor} shadow-inner` : 'bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:bg-gray-100'}
+              ${status === 'error' && val !== ans ? 'bg-red-100 border-red-400 text-red-500' : ''}`}>
+            {val ? <span className={textSize}>{val}</span> : <span className="text-[10px] md:text-xs opacity-60">{label}</span>}
+          </div>
+        );
+      };
+
+      return (
+        <div className="inline-flex items-end mx-2 align-bottom">
+          <div className={`flex items-center justify-center min-w-[70px] md:min-w-[100px] h-[60px] md:h-[80px] border-b-4 
+            ${isRevealed ? 'border-green-500 border-solid' : 'border-amber-500 border-dashed'} pb-1`}>
+            {isRevealed ? (
+              <span className="text-4xl md:text-5xl font-bold text-green-600 animate-bounce">{char}</span>
+            ) : (
+              <div className={`flex justify-center items-center h-full w-full gap-[2px] px-1 py-1 ${isTB ? 'flex-col' : 'flex-row'}`}>
+                {isTB ? (
+                  isRadTop ? (
+                    <>{renderSlot('radical', slotRadical, radicalAns, onClearRadical, '上部首', 'flex-1 w-full rounded-t-md border-2 border-b-[1px]')}
+                      {renderSlot('component', slotComponent, componentAns, onClearComponent, '下偏旁', 'flex-1 w-full rounded-b-md border-2 border-t-[1px]')}</>
+                  ) : (
+                    <>{renderSlot('component', slotComponent, componentAns, onClearComponent, '上偏旁', 'flex-1 w-full rounded-t-md border-2 border-b-[1px]')}
+                      {renderSlot('radical', slotRadical, radicalAns, onClearRadical, '下部首', 'flex-1 w-full rounded-b-md border-2 border-t-[1px]')}</>
+                  )
+                ) : (
+                  isRadRight ? (
+                    <>{renderSlot('component', slotComponent, componentAns, onClearComponent, '左偏旁', 'flex-1 h-full rounded-l-md border-2 border-r-[1px]')}
+                      {renderSlot('radical', slotRadical, radicalAns, onClearRadical, '右部首', 'flex-1 h-full rounded-r-md border-2 border-l-[1px]')}</>
+                  ) : (
+                    <>{renderSlot('radical', slotRadical, radicalAns, onClearRadical, '左部首', 'flex-1 h-full rounded-l-md border-2 border-r-[1px]')}
+                      {renderSlot('component', slotComponent, componentAns, onClearComponent, '右偏旁', 'flex-1 h-full rounded-r-md border-2 border-l-[1px]')}</>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+          <div className={`ml-1 mb-1 flex items-center justify-center font-medium ${isRevealed ? 'text-green-600' : 'text-amber-600'}`}>
+            <VerticalZhuyin bopomofo={bopomofo} />
+          </div>
+        </div>
+      );
+    };
+
+    // ==========================================
+    // 遊戲模式：情境填空
+    // ==========================================
+    const Mode4Game = ({ goHome }) => {
+      const [questions, setQuestions] = useState([]);
+      const [qIndex, setQIndex] = useState(0);
+      const [score, setScore] = useState(0);
+      const [slotRadical, setSlotRadical] = useState(null);
+      const [slotComponent, setSlotComponent] = useState(null);
+      const [attempts, setAttempts] = useState(0);
+      const [hasPartialMatch, setHasPartialMatch] = useState(false);
+      const [status, setStatus] = useState("idle");
+      
+      // 控制全句注音的開關狀態
+      const [showFullZhuyin, setShowFullZhuyin] = useState(false);
+      
+      useEffect(() => {
+        const getRandomItems = (arr, count) => [...arr].sort(() => 0.5 - Math.random()).slice(0, count);
+        const level1Pool = WORD_DATA.filter(w => w.level === 1);
+        const level2Pool = WORD_DATA.filter(w => w.level === 2);
+        const level3Pool = WORD_DATA.filter(w => w.level === 3);
+
+        const q1to6 = getRandomItems(level1Pool, 6);
+        const q7to9 = getRandomItems(level2Pool, 3);
+        const q10 = getRandomItems(level3Pool, 1);
+
+        setQuestions([...q1to6, ...q7to9, ...q10]);
+      }, []);
+
+      const currentQ = questions[qIndex];
+
+      const radicalOptions = useMemo(() => {
+        if (!currentQ) return [];
+        const others = ALL_RADICALS.filter(r => r !== currentQ.radical).sort(() => 0.5 - Math.random()).slice(0, 5);
+        return [currentQ.radical, ...others].sort(() => 0.5 - Math.random());
+      }, [currentQ]);
+
+      const componentOptions = useMemo(() => {
+        if (!currentQ) return [];
+        const others = ALL_COMPONENTS.filter(c => c !== currentQ.component).sort(() => 0.5 - Math.random()).slice(0, 5);
+        return [currentQ.component, ...others].sort(() => 0.5 - Math.random());
+      }, [currentQ]);
+
+      const checkAnswer = () => {
+        if (!slotRadical || !slotComponent) return;
+        const isRadRight = slotRadical === currentQ.radical;
+        const isCompRight = slotComponent === currentQ.component;
+        if (isRadRight || isCompRight) setHasPartialMatch(true);
+
+        if (isRadRight && isCompRight) {
+          let earned = attempts === 0 ? 10 : (attempts === 1 ? 9 : 8);
+          setScore(prev => prev + earned);
+          setStatus("success");
+        } else {
+          const newAttempts = attempts + 1;
+          setAttempts(newAttempts);
+          if (newAttempts >= 3) {
+            setScore(prev => prev + ((isRadRight || isCompRight || hasPartialMatch) ? 5 : 0));
+            setStatus("failed");
+          } else {
+            setStatus("error");
+            setTimeout(() => { setSlotRadical(null); setSlotComponent(null); setStatus("idle"); }, 1200);
+          }
+        }
+      };
+
+      const nextQuestion = () => {
+        if (qIndex < questions.length - 1) {
+          setQIndex(prev => prev + 1);
+          setAttempts(0);
+          setHasPartialMatch(false);
+          setSlotRadical(null);
+          setSlotComponent(null);
+          setStatus("idle");
+        } else { setStatus("gameover"); }
+      };
+
+      if (!currentQ) return <div className="p-10 text-xl font-bold">載入題庫中...</div>;
+
+      if (status === "gameover") {
+        return (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+            <h2 className="text-4xl font-bold text-amber-800">遊戲結束！</h2>
+            <div className="text-6xl animate-bounce">🏆</div>
+            <p className="text-2xl font-bold text-green-700">你的總分是：{score} 分</p>
+            <button onClick={goHome} className="mt-8 px-6 py-3 bg-amber-500 text-white text-xl font-bold rounded-full shadow-lg hover:bg-amber-600">回主選單</button>
+          </div>
+        );
+      }
+
+      const isRevealed = status === "success" || status === "failed";
+
+      const layoutInfo = currentQ ? getWordLayout(currentQ.char, currentQ.radical) : { layout: 'lr', radPos: 'left' };
+      const shouldSwapMenu = layoutInfo.radPos === 'right';
+
+      const radicalMenu = (
+        <div className="w-full bg-blue-50/80 rounded-2xl p-4 md:p-6 border-2 border-blue-200">
+          <h3 className="text-center font-bold text-blue-800 mb-4 md:text-lg">🟦 選擇部首</h3>
+          <div className="grid grid-cols-2 gap-2 md:gap-4">
+            {radicalOptions.map(r => (
+              <button key={`rad-${r}`} onClick={() => setSlotRadical(r)} disabled={isRevealed || slotRadical === r} className={`aspect-square text-3xl md:text-5xl rounded-lg font-bold shadow-sm transition-transform active:scale-95 ${slotRadical === r ? 'bg-blue-300 text-white opacity-40' : 'bg-white text-blue-700 hover:bg-blue-100 border border-blue-200 hover:border-blue-400'}`}>{r}</button>
+            ))}
+          </div>
+        </div>
+      );
+
+      const componentMenu = (
+        <div className="w-full bg-green-50/80 rounded-2xl p-4 md:p-6 border-2 border-green-200">
+          <h3 className="text-center font-bold text-green-800 mb-4 md:text-lg">🟩 選擇偏旁</h3>
+          <div className="grid grid-cols-2 gap-2 md:gap-4">
+            {componentOptions.map(c => (
+              <button key={`comp-${c}`} onClick={() => setSlotComponent(c)} disabled={isRevealed || slotComponent === c} className={`aspect-square text-3xl md:text-5xl rounded-lg font-bold shadow-sm transition-transform active:scale-95 ${slotComponent === c ? 'bg-green-300 text-white opacity-40' : 'bg-white text-green-700 hover:bg-green-100 border border-green-200 hover:border-green-400'}`}>{c}</button>
+            ))}
+          </div>
+        </div>
+      );
+
+      return (
+        <div className="flex flex-col items-center w-full max-w-5xl">
+          <div className="sticky top-0 z-30 w-full bg-[#FDFBF7] -mt-6 pt-6 pb-4 shadow-[0_10px_15px_-15px_rgba(0,0,0,0.1)]">
+            
+            {/* 右上角切換按鈕 */}
+            <div className="w-full flex justify-end mb-2 pr-1">
+              <label className="flex items-center cursor-pointer gap-2 text-emerald-700 font-bold bg-emerald-50 px-3 py-1.5 rounded-lg border-2 border-emerald-200 hover:bg-emerald-100 transition-colors shadow-sm">
+                <input 
+                  type="checkbox" 
+                  checked={showFullZhuyin} 
+                  onChange={(e) => setShowFullZhuyin(e.target.checked)} 
+                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                />
+                <span className="text-sm">📖 標示全句注音</span>
+              </label>
+            </div>
+
+            <div className="w-full flex justify-between items-center bg-amber-100 p-3 rounded-xl mb-4 font-bold text-amber-800 border-2 border-amber-300">
+              <div className="flex items-center gap-2">
+                <span>題數：{qIndex + 1} / 10</span>
+                <span className={`${currentQ.levelColor} text-white text-xs px-2 py-1 rounded-md shadow-sm`}>{currentQ.levelLabel}</span>
+              </div>
+              <div>分數：{score} 分</div>
+              <div className="text-red-500">機會：{'❤️'.repeat(3 - attempts)}{'🤍'.repeat(attempts)}</div>
+            </div>
+            <div className="bg-white rounded-2xl shadow-md p-4 md:p-6 w-full border-2 border-amber-200">
+              <div className="flex flex-wrap justify-center items-end text-2xl md:text-4xl font-bold tracking-wide leading-relaxed">
+                <SentencePart text={currentQ.pre} showZhuyin={showFullZhuyin} />
+                <InteractiveWordSlot char={currentQ.char} bopomofo={currentQ.bopomofo} isRevealed={isRevealed} slotRadical={slotRadical} slotComponent={slotComponent} onClearRadical={() => { if(!isRevealed) setSlotRadical(null) }} onClearComponent={() => { if(!isRevealed) setSlotComponent(null) }} status={status} radicalAns={currentQ.radical} componentAns={currentQ.component} />
+                <SentencePart text={currentQ.post} showZhuyin={showFullZhuyin} />
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full relative flex flex-col items-center mt-4 md:mt-6">
+            {isRevealed && <div className="absolute inset-0 bg-white/70 z-20 rounded-2xl backdrop-blur-sm"></div>}
+            <div className="w-full grid grid-cols-2 gap-4">
+              {/* 動態決定選單的左右順序 */}
+              {shouldSwapMenu ? (
+                <>
+                  {componentMenu}
+                  {radicalMenu}
+                </>
+              ) : (
+                <>
+                  {radicalMenu}
+                  {componentMenu}
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-8 mb-10 z-10 flex flex-col items-center w-full">
+            {isRevealed ? (
+              <>
+                <div className={`text-2xl md:text-3xl font-bold mb-4 ${status === 'success' ? 'text-green-600' : 'text-red-600'} animate-pulse`}>{status === 'success' ? '答對了！太厲害了！' : '很可惜，正確答案是這個喔！'}</div>
+                <button onClick={nextQuestion} className="px-10 py-4 rounded-full text-xl md:text-2xl font-bold text-white shadow-lg transition-transform bg-green-500 hover:bg-green-600 active:scale-95 animate-bounce">{qIndex < 9 ? '下一題 👉' : '看成績 🏆'}</button>
+              </>
+            ) : (
+              <button onClick={checkAnswer} disabled={!slotRadical || !slotComponent || status === 'error'} className={`px-10 py-4 rounded-full text-xl md:text-2xl font-bold text-white shadow-lg transition-transform ${(!slotRadical || !slotComponent) ? 'bg-gray-400 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-600 active:scale-95'}`}>組合看看！</button>
+            )}
+          </div>
+
+          <div className="fixed bottom-4 z-40 h-8 text-red-500 font-bold text-xl md:text-2xl bg-white/90 px-6 py-1 rounded-full shadow-md transition-opacity duration-300" style={{ opacity: status === "error" ? 1 : 0, pointerEvents: 'none' }}>哎呀！組合錯誤了，再試一次！</div>
+        </div>
+      );
+    };
+
+    // ==========================================
+    // 系統功能：文字列表 (部首字典)
+    // ==========================================
+    const DictionaryView = ({ goHome }) => {
+      const [selectedRadical, setSelectedRadical] = useState(null);
+      const scrollRef = useRef(null);
+      useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [selectedRadical]);
+
+      return (
+        <div className="w-full max-w-5xl bg-white rounded-2xl shadow-lg p-6 border-4 border-emerald-200 flex flex-col h-[85vh]">
+          <div className="flex justify-between items-center mb-6 border-b-2 border-emerald-100 pb-4">
+            <h2 className="text-2xl md:text-3xl font-bold text-emerald-800">📖 文字列表 (共 {WORD_DATA.length} 字){selectedRadical && <span className="text-emerald-600 ml-2">- 「{selectedRadical}」部</span>}</h2>
+            <div className="flex gap-2">
+              {selectedRadical && <button onClick={() => setSelectedRadical(null)} className="text-emerald-600 font-bold hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 md:px-4 py-2 rounded-lg transition-colors">返回部首</button>}
+              <button onClick={goHome} className="text-emerald-600 font-bold hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 md:px-4 py-2 rounded-lg transition-colors">回首頁</button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto pr-2" ref={scrollRef}>
+            {!selectedRadical ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {ALL_RADICALS.map(r => (
+                  <button key={r} onClick={() => setSelectedRadical(r)} className="flex flex-col items-center justify-center p-4 rounded-2xl bg-emerald-50 text-emerald-700 hover:bg-emerald-500 hover:text-white transition-all shadow-sm active:scale-95 border-2 border-emerald-100 hover:border-emerald-500">
+                    <span className="text-4xl md:text-5xl font-bold mb-2">{r}</span>
+                    <div className="text-xs md:text-sm font-bold mb-1 text-center line-clamp-1">{RADICAL_DESC[r] || "漢字部首"}</div>
+                    <span className="text-xs font-medium opacity-80 bg-white/50 px-2 py-0.5 rounded-full text-emerald-800">{WORD_DATA.filter(w => w.radical === r).length} 字</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {WORD_DATA.filter(w => w.radical === selectedRadical).map(w => (
+                  <div key={w.char} className="bg-emerald-50 rounded-xl p-4 flex items-center gap-4 shadow-sm border border-emerald-100 transition-transform hover:scale-[1.02] relative overflow-hidden">
+                    <div className={`absolute top-0 right-0 ${w.levelColor} text-white text-[10px] px-2 py-0.5 rounded-bl-lg font-bold shadow-sm`}>{w.levelLabel}</div>
+                    <div className="flex items-center justify-center bg-white min-w-[80px] h-20 rounded-lg shadow-inner text-5xl font-bold text-emerald-800 border border-emerald-200">{w.char}</div>
+                    <div className="flex items-center"><VerticalZhuyin bopomofo={w.bopomofo} size="lg" /></div>
+                    <div className="ml-2 flex-1">
+                      <div className="text-emerald-600 text-sm font-bold mb-1 tracking-wider">{w.radical} ＋ {w.component}</div>
+                      <div className="text-gray-800 font-medium text-sm leading-snug">{w.mean}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // ==========================================
+    // 主程式
+    // ==========================================
+    function App() {
+      const [currentView, setCurrentView] = useState('menu');
+      const renderView = () => {
+        switch(currentView) {
+          case 'mode4': return <Mode4Game goHome={() => setCurrentView('menu')} />;
+          case 'dictionary': return <DictionaryView goHome={() => setCurrentView('menu')} />;
+          default: return (
+              <div className="flex flex-col items-center justify-center w-full max-w-xl bg-white rounded-3xl shadow-xl p-8 md:p-12 border-4 border-amber-300 my-auto">
+                <h1 className="text-5xl md:text-6xl font-bold text-amber-800 mb-2">繁體中文工坊</h1>
+                <p className="text-xl md:text-2xl text-amber-600 mb-10 font-medium tracking-widest">部首與偏旁的鍊金術</p>
+                <div className="flex flex-col gap-6 w-full">
+                  <MenuBtn title="📝 情境填空" sub="幫句子找到對的字" onClick={() => setCurrentView('mode4')} highlight />
+                  <MenuBtn title="📖 文字列表" sub="預習與複習的好幫手" onClick={() => setCurrentView('dictionary')} color="emerald" />
+                </div>
+              </div>
+            );
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-[#FDFBF7] font-sans text-gray-800 flex flex-col items-center justify-start py-6 px-4">
+          {renderView()}
+        </div>
+      );
+    }
+
+    const MenuBtn = ({ title, sub, onClick, highlight, color = "amber" }) => {
+      const baseColor = color === "amber" ? "bg-amber-50 hover:bg-amber-100 border-amber-300" : "bg-emerald-50 hover:bg-emerald-100 border-emerald-300";
+      const textColor = color === "amber" ? "text-amber-800" : "text-emerald-800";
+      const hlClass = highlight ? "ring-4 ring-amber-400 transform scale-105" : "";
+      return (
+        <button onClick={onClick} className={`w-full flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all hover:shadow-md active:scale-95 ${baseColor} ${hlClass}`}>
+          <span className={`text-2xl font-bold ${textColor} mb-2`}>{title}</span>
+          <span className="text-gray-500 font-medium">{sub}</span>
+        </button>
+      );
+    }
+
+    // 啟動 React 應用程式
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
