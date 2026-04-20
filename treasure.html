@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>尋寶大作戰</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f0fdf4; /* Light green background */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: manipulation;
+        }
+        #gameCanvas {
+            background-color: #9ca3af; /* 較深的灰色作為細隔線底色 */
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            cursor: crosshair;
+        }
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-8 text-gray-800">
+
+    <div class="max-w-6xl w-full px-4 flex flex-col items-center">
+        <!-- 標題與資訊區塊 -->
+        <h1 class="text-4xl font-bold text-green-700 mb-6 drop-shadow-sm text-center">💎 尋寶大作戰 💎</h1>
+        
+        <div class="w-full max-w-[600px] bg-white rounded-xl shadow-md p-5 mb-6 flex flex-col gap-4 border border-green-100">
+            <!-- 上半部：次數與行動 -->
+            <div class="flex justify-between items-center">
+                <div class="flex flex-col">
+                    <span class="text-sm text-gray-500 font-semibold uppercase tracking-wider">探索次數</span>
+                    <span class="text-3xl font-black text-gray-800" id="turnsDisplay">0</span>
+                </div>
+                
+                <div class="flex flex-col items-end">
+                    <span class="text-sm text-gray-500 font-semibold uppercase tracking-wider mb-1">距離提示</span>
+                    <div class="flex gap-2 sm:gap-3 text-xs sm:text-sm font-medium text-gray-600 flex-wrap justify-end max-w-[320px]">
+                        <div class="flex items-center gap-1"><div class="w-3.5 h-3.5 rounded bg-[#4b5563] shadow-inner"></div>> 40</div>
+                        <div class="flex items-center gap-1"><div class="w-3.5 h-3.5 rounded bg-[#ef4444] shadow-inner"></div>21~40</div>
+                        <div class="flex items-center gap-1"><div class="w-3.5 h-3.5 rounded bg-[#f97316] shadow-inner"></div>11~20</div>
+                        <div class="flex items-center gap-1"><div class="w-3.5 h-3.5 rounded bg-[#eab308] shadow-inner"></div>4~10</div>
+                        <div class="flex items-center gap-1"><div class="w-3.5 h-3.5 rounded bg-[#22c55e] shadow-inner"></div>≤ 3</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 炸彈回合提示 (預設隱藏) -->
+            <div id="bombDescription" class="hidden bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 text-sm font-bold text-center shadow-sm animate-pulse">
+                <!-- 內容由 JS 動態填入 -->
+            </div>
+        </div>
+
+        <div class="flex justify-center w-full">
+            <div class="flex flex-col items-center w-full max-w-[600px]">
+                <!-- 畫布 -->
+                <canvas id="gameCanvas" width="600" height="600" class="rounded-lg w-full h-auto aspect-square block mb-4"></canvas>
+                
+                <!-- 確認按鈕 (僅觸控裝置選中時顯示) -->
+                <div id="confirmContainer" class="hidden w-full flex justify-center mb-4">
+                    <button id="confirmBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-12 rounded-full shadow-lg transform transition-all active:scale-95 text-lg flex items-center gap-2">
+                        ✅ 確認選擇
+                    </button>
+                </div>
+
+                <!-- 遊戲結束視窗 (置於地圖下方以防遮擋) -->
+                <div id="gameOverModal" class="hidden w-full bg-white p-6 rounded-2xl shadow-md text-center border border-gray-200">
+                    <h2 id="modalTitle" class="text-3xl font-bold mb-2"></h2>
+                    <p id="modalDesc" class="text-gray-600 mb-6 text-lg"></p>
+                    <button onclick="initGame()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transform hover:-translate-y-1 transition-all duration-200">
+                        再玩一次
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // 遊戲常數
+    const GRID_SIZE = 50;
+    const CELL_SIZE = 12;
+    const BOMB_TURNS = [5, 9, 12, 15, 18, 20, 22, 24, 26, 28, 30];
+    
+    // 狀態常數
+    const STATE_EMPTY = 0;
+    const STATE_RED = 1;
+    const STATE_ORANGE = 2;
+    const STATE_YELLOW = 3;
+    const STATE_GREEN = 4;
+    const STATE_BLACK = 5; // 焦土
+    const STATE_DARK_GRAY = 6; // 大於 40
+
+    const COLORS = {
+        [STATE_EMPTY]: '#e5e7eb',   // 淺灰色
+        [STATE_RED]: '#ef4444',     // 紅色
+        [STATE_ORANGE]: '#f97316',  // 橘色
+        [STATE_YELLOW]: '#eab308',  // 黃色
+        [STATE_GREEN]: '#22c55e',   // 綠色
+        [STATE_BLACK]: '#1f2937',   // 黑色 (焦土)
+        [STATE_DARK_GRAY]: '#4b5563' // 深灰色
+    };
+
+    // 遊戲變數
+    let grid = [];
+    let treasure = { x: 0, y: 0 };
+    let currentTurn = 0;
+    let isGameOver = false;
+    let mouseX = -1;
+    let mouseY = -1;
+    let currentBomb = null; 
+    let selectedCell = null;
+    
+    // 檢測是否為觸控裝置
+    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.matchMedia("(pointer: coarse)").matches;
+
+    // DOM 元素
+    const turnsDisplay = document.getElementById('turnsDisplay');
+    const bombDescription = document.getElementById('bombDescription');
+    const gameOverModal = document.getElementById('gameOverModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalDesc = document.getElementById('modalDesc');
+    const confirmContainer = document.getElementById('confirmContainer');
+    const confirmBtn = document.getElementById('confirmBtn');
+
+    // 距離計算 (歐幾里得距離)
+    function getDistance(x1, y1, x2, y2) {
+        return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+    }
+
+    // 取得小十字範圍 (一般探測)
+    function getSmallCrossArea(cx, cy) {
+        const area = [];
+        const offsets = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
+        for (const [dx, dy] of offsets) {
+            const nx = cx + dx;
+            const ny = cy + dy;
+            if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE) {
+                area.push({x: nx, y: ny});
+            }
+        }
+        return area;
+    }
+
+    // 取得下一個炸彈設定
+    function generateRandomBomb() {
+        const types = ['circle', 'stripe', 'cross'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        const isHorizontal = Math.random() > 0.5;
+        return { type, isHorizontal };
+    }
+
+    // 更新介面
+    function updateUI() {
+        turnsDisplay.textContent = currentTurn;
+        
+        const nextTurnNumber = currentTurn + 1;
+        if (BOMB_TURNS.includes(nextTurnNumber)) {
+            if (!currentBomb) currentBomb = generateRandomBomb();
+            
+            let bombName = "";
+            let bombDetail = "";
+            
+            if (currentBomb.type === 'circle') {
+                bombName = "圓形炸彈";
+                bombDetail = "半徑 20 內的圓形區域化為焦土";
+            } else if (currentBomb.type === 'stripe') {
+                bombName = currentBomb.isHorizontal ? "橫條炸彈" : "豎條炸彈";
+                bombDetail = currentBomb.isHorizontal ? "寬度 11 的橫條區域化為焦土" : "寬度 11 的豎條區域化為焦土";
+            } else if (currentBomb.type === 'cross') {
+                bombName = "十字炸彈";
+                bombDetail = "寬度 7 的十字區域化為焦土";
+            }
+            
+            bombDescription.textContent = `⚠️ 第 ${nextTurnNumber} 次為炸彈回合！${bombName}：將${bombDetail}。請避開寶藏！`;
+            bombDescription.classList.remove('hidden');
+        } else {
+            currentBomb = null;
+            bombDescription.classList.add('hidden');
+        }
+    }
+
+    // 初始化遊戲
+    function initGame() {
+        grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(STATE_EMPTY));
+        treasure.x = Math.floor(Math.random() * GRID_SIZE);
+        treasure.y = Math.floor(Math.random() * GRID_SIZE);
+        currentTurn = 0;
+        isGameOver = false;
+        currentBomb = null;
+        selectedCell = null;
+        mouseX = -1;
+        mouseY = -1;
+        
+        confirmContainer.classList.add('hidden');
+        gameOverModal.classList.add('hidden');
+        updateUI();
+        draw();
+        
+        // 隱藏寶藏位置(開發時可解除註解來作弊)
+        // console.log(`Treasure at: ${treasure.x}, ${treasure.y}`);
+    }
+
+    // 取得炸彈影響範圍
+    function getBombArea(cx, cy, bomb) {
+        let area = [];
+        for (let x = 0; x < GRID_SIZE; x++) {
+            for (let y = 0; x < GRID_SIZE && y < GRID_SIZE; y++) {
+                let hit = false;
+                if (bomb.type === 'circle') {
+                    if (getDistance(cx, cy, x, y) <= 20) hit = true;
+                } else if (bomb.type === 'stripe') {
+                    if (bomb.isHorizontal) {
+                        if (Math.abs(y - cy) <= 5) hit = true; // 寬度11 (5上5下+自己)
+                    } else {
+                        if (Math.abs(x - cx) <= 5) hit = true;
+                    }
+                } else if (bomb.type === 'cross') {
+                    if (Math.abs(x - cx) <= 3 || Math.abs(y - cy) <= 3) hit = true; // 寬度7
+                }
+                
+                if (hit) area.push({x, y});
+            }
+        }
+        return area;
+    }
+
+    // 結束遊戲處理
+    function endGame(win, reason) {
+        isGameOver = true;
+        gameOverModal.classList.remove('hidden');
+        if (win) {
+            modalTitle.textContent = "🎉 遊戲勝利！";
+            modalTitle.className = "text-3xl font-bold mb-4 text-green-600";
+        } else {
+            modalTitle.textContent = "💥 遊戲結束！";
+            modalTitle.className = "text-3xl font-bold mb-4 text-red-600";
+        }
+        modalDesc.textContent = reason;
+        draw(); // 最後重繪一次顯示寶藏
+    }
+
+    // 繪製畫面
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 畫網格與狀態
+        for (let x = 0; x < GRID_SIZE; x++) {
+            for (let y = 0; y < GRID_SIZE; y++) {
+                ctx.fillStyle = COLORS[grid[x][y]];
+                // 如果遊戲結束，顯示寶箱位置
+                if (isGameOver && x === treasure.x && y === treasure.y) {
+                    ctx.fillStyle = '#a855f7'; // 紫色代表寶箱
+                }
+                // 留出1px的間隙做為網格線效果
+                ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
+                
+                // 如果遊戲結束，在寶箱位置畫出 emoji 圖片
+                if (isGameOver && x === treasure.x && y === treasure.y) {
+                    ctx.font = `${CELL_SIZE - 2}px 'Segoe UI Emoji', Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('🪎', x * CELL_SIZE + (CELL_SIZE / 2), y * CELL_SIZE + (CELL_SIZE / 2) + 1);
+                }
+            }
+        }
+
+        // 如果遊戲還沒結束，繪製滑鼠懸停效果
+        if (!isGameOver && mouseX >= 0 && mouseX < GRID_SIZE && mouseY >= 0 && mouseY < GRID_SIZE) {
+            const nextTurnNumber = currentTurn + 1;
+            const isBomb = BOMB_TURNS.includes(nextTurnNumber);
+            
+            // 檢查該格是否可選
+            if (grid[mouseX][mouseY] !== STATE_EMPTY) {
+                canvas.style.cursor = 'not-allowed';
+            } else {
+                canvas.style.cursor = 'crosshair';
+                
+                if (isBomb && currentBomb) {
+                    // 畫炸彈預覽
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.4)'; // 半透明紅色
+                    const area = getBombArea(mouseX, mouseY, currentBomb);
+                    area.forEach(cell => {
+                         ctx.fillRect(cell.x * CELL_SIZE, cell.y * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
+                    });
+                } else {
+                    // 一般探測預覽 (小十字)
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.strokeStyle = '#3b82f6'; // 藍色邊框
+                    ctx.lineWidth = 1;
+                    const crossArea = getSmallCrossArea(mouseX, mouseY);
+                    crossArea.forEach(cell => {
+                        if (grid[cell.x][cell.y] === STATE_EMPTY) {
+                            ctx.fillRect(cell.x * CELL_SIZE, cell.y * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
+                            ctx.strokeRect(cell.x * CELL_SIZE, cell.y * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    // 處理點擊
+    canvas.addEventListener('click', (e) => {
+        if (isGameOver) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = Math.floor(((e.clientX - rect.left) * scaleX) / CELL_SIZE);
+        const y = Math.floor(((e.clientY - rect.top) * scaleY) / CELL_SIZE);
+
+        if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return;
+        
+        // 已經選過或焦土不能選
+        if (grid[x][y] !== STATE_EMPTY) return;
+
+        if (isTouchDevice) {
+            selectedCell = { x, y };
+            mouseX = x;
+            mouseY = y;
+            confirmContainer.classList.remove('hidden');
+            draw();
+        } else {
+            executeAction(x, y);
+        }
+    });
+
+    // 確認按鈕事件
+    confirmBtn.addEventListener('click', () => {
+        if (selectedCell && !isGameOver) {
+            executeAction(selectedCell.x, selectedCell.y);
+            selectedCell = null;
+            mouseX = -1;
+            mouseY = -1;
+            confirmContainer.classList.add('hidden');
+        }
+    });
+
+    function executeAction(x, y) {
+        const nextTurnNumber = currentTurn + 1;
+        const isBomb = BOMB_TURNS.includes(nextTurnNumber);
+
+        if (isBomb) {
+            // 炸彈邏輯
+            const area = getBombArea(x, y, currentBomb);
+            let hitTreasure = false;
+
+            area.forEach(cell => {
+                if (cell.x === treasure.x && cell.y === treasure.y) {
+                    hitTreasure = true;
+                }
+                // 只有原本是空的才變成焦土 (不覆蓋之前的提示)
+                if (grid[cell.x][cell.y] === STATE_EMPTY) {
+                    grid[cell.x][cell.y] = STATE_BLACK;
+                }
+            });
+
+            if (hitTreasure) {
+                endGame(false, "糟糕！你不小心用炸彈把寶藏炸毀了！");
+                return;
+            }
+
+        } else {
+            // 一般探測邏輯 (小十字)
+            const crossArea = getSmallCrossArea(x, y);
+            let hitTreasure = false;
+
+            // 檢查這 5 格中是否有寶藏
+            crossArea.forEach(cell => {
+                if (cell.x === treasure.x && cell.y === treasure.y) {
+                    hitTreasure = true;
+                }
+            });
+
+            if (hitTreasure) {
+                endGame(true, `恭喜你！在第 ${nextTurnNumber} 次嘗試找到了寶藏！`);
+                return;
+            } 
+            
+            // 如果沒中，更新這 5 格的距離顏色
+            crossArea.forEach(cell => {
+                if (grid[cell.x][cell.y] === STATE_EMPTY) {
+                    const dist = getDistance(cell.x, cell.y, treasure.x, treasure.y);
+                    if (dist > 40) {
+                        grid[cell.x][cell.y] = STATE_DARK_GRAY;
+                    } else if (dist > 20) {
+                        grid[cell.x][cell.y] = STATE_RED;
+                    } else if (dist > 10) {
+                        grid[cell.x][cell.y] = STATE_ORANGE;
+                    } else if (dist > 3) {
+                        grid[cell.x][cell.y] = STATE_YELLOW;
+                    } else {
+                        grid[cell.x][cell.y] = STATE_GREEN;
+                    }
+                }
+            });
+        }
+
+        currentTurn++;
+        updateUI();
+        draw();
+    }
+
+    // 處理滑鼠移動 (為了 Hover 效果)
+    canvas.addEventListener('mousemove', (e) => {
+        if (isGameOver) return;
+        if (isTouchDevice && selectedCell) return; // 觸控模式下若已選中則鎖定預覽
+        
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        mouseX = Math.floor(((e.clientX - rect.left) * scaleX) / CELL_SIZE);
+        mouseY = Math.floor(((e.clientY - rect.top) * scaleY) / CELL_SIZE);
+        draw();
+    });
+
+    canvas.addEventListener('mouseout', () => {
+        if (isTouchDevice && selectedCell) return; // 觸控模式下若已選中則鎖定預覽
+        mouseX = -1;
+        mouseY = -1;
+        draw();
+    });
+
+    // 啟動遊戲
+    initGame();
+
+</script>
+</body>
+</html>
