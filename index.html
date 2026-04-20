@@ -12,11 +12,13 @@
             background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 70%);
             -webkit-tap-highlight-color: transparent;
         }
+        /* 隱藏滾動條但保留滾動功能，讓選單更美觀 */
+        ::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-6 text-slate-100 font-sans">
+<body class="min-h-screen flex flex-col items-center justify-start py-10 px-6 text-slate-100 font-sans overflow-y-auto">
 
-    <div class="w-full max-w-md flex flex-col items-center space-y-8">
+    <div class="w-full max-w-md flex flex-col items-center space-y-8 my-auto">
         <div class="text-center space-y-2">
             <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-indigo-600/20 text-indigo-400 text-4xl mb-2 border border-indigo-500/30 shadow-[0_0_15px_rgba(79,70,229,0.5)]">
                 <i class="fa-solid fa-gamepad"></i>
@@ -61,16 +63,30 @@
                         <i class="fa-solid fa-book-open"></i>
                     </div>
                     <div>
-                        <h2 class="text-xl font-bold text-white mb-1">繁體中文工坊</h2>
+                        <h2 class="text-xl font-bold text-white mb-1">漢字工坊</h2>
                         <p class="text-xs text-slate-400">部首與偏旁的鍊金術</p>
+                    </div>
+                    <i class="fa-solid fa-chevron-right ml-auto text-slate-500"></i>
+                </div>
+            </a>
+
+            <a href="treasure.html" class="block w-full bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all duration-200 rounded-2xl p-4 border border-slate-700 shadow-lg relative overflow-hidden group">
+                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all"></div>
+                <div class="flex items-center gap-5 relative z-10">
+                    <div class="w-14 h-14 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 text-2xl border border-purple-500/30">
+                        <i class="fa-solid fa-gem"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-white mb-1">尋寶大作戰</h2>
+                        <p class="text-xs text-slate-400">尋找隱藏的神秘寶藏</p>
                     </div>
                     <i class="fa-solid fa-chevron-right ml-auto text-slate-500"></i>
                 </div>
             </a>
         </div>
         
-        <div class="text-slate-500 text-xs font-medium pt-8">
-            v1.1.0 Android Edition
+        <div class="text-slate-500 text-xs font-medium pt-8 pb-4">
+            v1.2.0 Android Edition
         </div>
     </div>
 
