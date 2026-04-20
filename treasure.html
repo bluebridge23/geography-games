@@ -266,7 +266,7 @@
                 // 如果遊戲結束，在寶箱位置畫出 emoji 圖片
                 if (isGameOver && x === treasure.x && y === treasure.y) {
                     // 🌟 在這裡調整大小！例如 CELL_SIZE * 1.5 就是放大 1.5 倍
-                    const emojiSize = CELL_SIZE * 2; 
+                    const emojiSize = CELL_SIZE * 1.5; 
                     
                     ctx.font = `${emojiSize}px 'Segoe UI Emoji', Arial`;
                     ctx.textAlign = 'center';
