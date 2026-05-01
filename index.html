@@ -12,102 +12,83 @@
             background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 70%);
             -webkit-tap-highlight-color: transparent;
         }
-        /* 隱藏滾動條但保留滾動功能，讓選單更美觀 */
+        /* 隱藏滾動條 */
         ::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-start py-10 px-6 text-slate-100 font-sans overflow-y-auto">
+<body class="min-h-screen flex flex-col items-center justify-start py-8 px-4 text-slate-100 font-sans overflow-y-auto">
 
-    <div class="w-full max-w-md flex flex-col items-center space-y-8 my-auto">
+    <div class="w-full max-w-lg flex flex-col items-center space-y-8">
         <!-- 標題區 -->
         <div class="text-center space-y-2">
-            <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-indigo-600/20 text-indigo-400 text-4xl mb-2 border border-indigo-500/30 shadow-[0_0_15px_rgba(79,70,229,0.5)]">
-                <i class="fa-solid fa-gamepad"></i>
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-600/20 text-indigo-400 text-3xl mb-1 border border-indigo-500/30 shadow-[0_0_15px_rgba(79,70,229,0.5)]">
+                <i class="fa-solid fa-shapes"></i>
             </div>
             <h1 class="text-3xl font-black tracking-wider text-white">綜合學習大挑戰</h1>
-            <p class="text-slate-400 text-sm font-medium">選擇你要挑戰的項目</p>
+            <p class="text-slate-400 text-sm font-medium">智慧與趣味的 6 合 1 遊戲集</p>
         </div>
 
-        <!-- 遊戲選單按鈕 -->
-        <div class="w-full space-y-4">
-            <!-- 遊戲 1：猜國家 -->
-            <a href="map.html" class="block w-full bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all duration-200 rounded-2xl p-4 border border-slate-700 shadow-lg relative overflow-hidden group">
-                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-blue-500/10 rounded-full blur-xl group-hover:bg-blue-500/20 transition-all"></div>
-                <div class="flex items-center gap-5 relative z-10">
-                    <div class="w-14 h-14 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400 text-2xl border border-blue-500/30">
-                        <i class="fa-solid fa-map-location-dot"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-bold text-white mb-1">地圖猜猜樂</h2>
-                        <p class="text-xs text-slate-400">3D 世界地理位置挑戰</p>
-                    </div>
-                    <i class="fa-solid fa-chevron-right ml-auto text-slate-500"></i>
+        <!-- 遊戲選單：改為兩列並排網格 -->
+        <div class="w-full grid grid-cols-2 gap-4">
+            
+            <!-- 1. 地圖猜猜樂 -->
+            <a href="map.html" class="flex flex-col items-center justify-center bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all rounded-3xl p-6 border border-slate-700 text-center shadow-lg group">
+                <div class="w-14 h-14 rounded-2xl bg-blue-500/20 flex items-center justify-center text-blue-400 text-2xl mb-4 border border-blue-500/30 group-hover:bg-blue-500/30 transition-colors">
+                    <i class="fa-solid fa-map-location-dot"></i>
                 </div>
+                <h2 class="text-lg font-bold text-white mb-1">地圖猜猜樂</h2>
+                <p class="text-[10px] text-slate-500 uppercase tracking-widest">World Quiz</p>
             </a>
 
-            <!-- 遊戲 2：猜國旗 -->
-            <a href="flags.html" class="block w-full bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all duration-200 rounded-2xl p-4 border border-slate-700 shadow-lg relative overflow-hidden group">
-                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-green-500/10 rounded-full blur-xl group-hover:bg-green-500/20 transition-all"></div>
-                <div class="flex items-center gap-5 relative z-10">
-                    <div class="w-14 h-14 rounded-xl bg-green-500/20 flex items-center justify-center text-green-400 text-2xl border border-green-500/30">
-                        <i class="fa-solid fa-flag"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-bold text-white mb-1">猜國旗挑戰</h2>
-                        <p class="text-xs text-slate-400">測試你的世界國旗知識</p>
-                    </div>
-                    <i class="fa-solid fa-chevron-right ml-auto text-slate-500"></i>
+            <!-- 2. 猜國旗挑戰 -->
+            <a href="flags.html" class="flex flex-col items-center justify-center bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all rounded-3xl p-6 border border-slate-700 text-center shadow-lg group">
+                <div class="w-14 h-14 rounded-2xl bg-green-500/20 flex items-center justify-center text-green-400 text-2xl mb-4 border border-green-500/30 group-hover:bg-green-500/30 transition-colors">
+                    <i class="fa-solid fa-flag"></i>
                 </div>
+                <h2 class="text-lg font-bold text-white mb-1">猜國旗挑戰</h2>
+                <p class="text-[10px] text-slate-500 uppercase tracking-widest">Flag Master</p>
             </a>
 
-            <!-- 遊戲 3：漢字工坊 -->
-            <a href="chinese.html" class="block w-full bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all duration-200 rounded-2xl p-4 border border-slate-700 shadow-lg relative overflow-hidden group">
-                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition-all"></div>
-                <div class="flex items-center gap-5 relative z-10">
-                    <div class="w-14 h-14 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 text-2xl border border-amber-500/30">
-                        <i class="fa-solid fa-book-open"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-bold text-white mb-1">漢字工坊</h2>
-                        <p class="text-xs text-slate-400">部首與偏旁的鍊金術</p>
-                    </div>
-                    <i class="fa-solid fa-chevron-right ml-auto text-slate-500"></i>
+            <!-- 3. 中國省份猜猜樂 (排序提前) -->
+            <a href="china_map.html" class="flex flex-col items-center justify-center bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all rounded-3xl p-6 border border-slate-700 text-center shadow-lg group">
+                <div class="w-14 h-14 rounded-2xl bg-rose-500/20 flex items-center justify-center text-rose-400 text-2xl mb-4 border border-rose-500/30 group-hover:bg-rose-500/30 transition-colors">
+                    <i class="fa-solid fa-map"></i>
                 </div>
+                <h2 class="text-lg font-bold text-white mb-1">中國省份</h2>
+                <p class="text-[10px] text-slate-500 uppercase tracking-widest">China Map</p>
             </a>
 
-            <!-- 遊戲 4：尋寶大作戰 -->
-            <a href="treasure.html" class="block w-full bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all duration-200 rounded-2xl p-4 border border-slate-700 shadow-lg relative overflow-hidden group">
-                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all"></div>
-                <div class="flex items-center gap-5 relative z-10">
-                    <div class="w-14 h-14 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 text-2xl border border-purple-500/30">
-                        <i class="fa-solid fa-gem"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-bold text-white mb-1">尋寶大作戰</h2>
-                        <p class="text-xs text-slate-400">尋找隱藏的神秘寶藏</p>
-                    </div>
-                    <i class="fa-solid fa-chevron-right ml-auto text-slate-500"></i>
+            <!-- 4. 漢字工坊 -->
+            <a href="chinese.html" class="flex flex-col items-center justify-center bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all rounded-3xl p-6 border border-slate-700 text-center shadow-lg group">
+                <div class="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-400 text-2xl mb-4 border border-amber-500/30 group-hover:bg-amber-500/30 transition-colors">
+                    <i class="fa-solid fa-book-open"></i>
                 </div>
+                <h2 class="text-lg font-bold text-white mb-1">漢字工坊</h2>
+                <p class="text-[10px] text-slate-500 uppercase tracking-widest">Chinese Char</p>
             </a>
 
-            <!-- 遊戲 5：中國省份猜猜樂 (新增) -->
-            <a href="china_map.html" class="block w-full bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all duration-200 rounded-2xl p-4 border border-slate-700 shadow-lg relative overflow-hidden group">
-                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-rose-500/10 rounded-full blur-xl group-hover:bg-rose-500/20 transition-all"></div>
-                <div class="flex items-center gap-5 relative z-10">
-                    <div class="w-14 h-14 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 text-2xl border border-rose-500/30">
-                        <i class="fa-solid fa-map"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-bold text-white mb-1">中國省份猜猜樂</h2>
-                        <p class="text-xs text-slate-400">挑戰你的中國地理知識</p>
-                    </div>
-                    <i class="fa-solid fa-chevron-right ml-auto text-slate-500"></i>
+            <!-- 5. 尋寶大作戰 -->
+            <a href="treasure.html" class="flex flex-col items-center justify-center bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all rounded-3xl p-6 border border-slate-700 text-center shadow-lg group">
+                <div class="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center text-purple-400 text-2xl mb-4 border border-purple-500/30 group-hover:bg-purple-500/30 transition-colors">
+                    <i class="fa-solid fa-gem"></i>
                 </div>
+                <h2 class="text-lg font-bold text-white mb-1">尋寶大作戰</h2>
+                <p class="text-[10px] text-slate-500 uppercase tracking-widest">Treasure</p>
             </a>
+
+            <!-- 6. 誰是牛頭王 -->
+            <a href="take6_game.html" class="flex flex-col items-center justify-center bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all rounded-3xl p-6 border border-slate-700 text-center shadow-lg group">
+                <div class="w-14 h-14 rounded-2xl bg-teal-500/20 flex items-center justify-center text-teal-400 text-2xl mb-4 border border-teal-500/30 group-hover:bg-teal-500/30 transition-colors">
+                    <i class="fa-solid fa-cow"></i>
+                </div>
+                <h2 class="text-lg font-bold text-white mb-1">誰是牛頭王</h2>
+                <p class="text-[10px] text-slate-500 uppercase tracking-widest">Take 6!</p>
+            </a>
+
         </div>
         
-        <div class="text-slate-500 text-xs font-medium pt-8 pb-4">
-            v1.3.0 Android Edition
+        <div class="text-slate-500 text-[10px] font-medium pt-4 pb-8">
+            v1.5.0 Android Edition
         </div>
     </div>
 
