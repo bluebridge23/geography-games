@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>中國省份猜猜樂 - 真實地形與地理大挑戰</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #020617;}
+        
+        .overlay-screen {
+            position: fixed; inset: 0; background: rgba(2, 6, 23, 0.95);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999; backdrop-filter: blur(10px);
+        }
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid #f59e0b;
+            border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .flat-bg { background-color: #020617; }
+        
+        /* 自訂 Leaflet 標籤樣式 */
+        .capital-tooltip {
+            background: transparent; border: none; box-shadow: none;
+            color: #0f172a; font-weight: 800; font-size: 12px;
+            text-shadow: 1.5px 1.5px 0 #fff, -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff;
+            padding: 0; margin-left: 2px; pointer-events: none;
+        }
+        .province-tooltip {
+            background: transparent; border: none; box-shadow: none;
+            color: #ca8a04; font-weight: 900; font-size: 16px;
+            text-shadow: 2px 2px 0px #fff, -2px -2px 0px #fff, 2px -2px 0px #fff, -2px 2px 0px #fff;
+            pointer-events: none;
+        }
+        
+        /* 隱藏 Leaflet 預設的焦點外框 */
+        .leaflet-container { outline: 0 !important; background: #020617; }
+
+        /* 自訂滾動條 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="text-slate-100">
+
+    <!-- 讀取畫面 -->
+    <div id="loading" class="overlay-screen text-white">
+        <div class="spinner mb-6"></div>
+        <h2 class="text-2xl font-black mb-2 tracking-wider">載入線上圖資與地貌中...</h2>
+        <p id="loading-text" class="text-yellow-400 font-medium text-sm">正在分析相鄰座標並分配板塊顏色...</p>
+    </div>
+
+    <!-- 遊戲結束畫面 -->
+    <div id="game-over" class="overlay-screen hidden">
+        <div class="bg-slate-900 p-8 md:p-12 rounded-3xl shadow-2xl text-center max-w-lg w-[90%] border-t-8 border-yellow-500 max-h-[90vh] overflow-y-auto">
+            <h2 class="text-4xl font-black text-white mb-2">挑戰結束！</h2>
+            <p class="text-slate-400 mb-6 font-medium">你完成了 10 個省份的探索</p>
+            
+            <div class="bg-slate-800 rounded-2xl p-6 mb-6 border border-slate-700">
+                <p class="text-sm text-yellow-400 font-bold uppercase tracking-wider mb-1">最終總分</p>
+                <p class="text-6xl font-black text-yellow-500"><span id="final-score">0</span><span class="text-2xl text-yellow-800"> / 100</span></p>
+            </div>
+
+            <p id="rank-message" class="text-xl font-bold text-slate-200 mb-8">稱號：神州地理大師</p>
+
+            <div class="flex flex-col md:flex-row gap-4">
+                <button onclick="restartGame()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition transform hover:-translate-y-1 active:scale-95 text-lg border border-slate-600">
+                    再玩一次
+                </button>
+                <button onclick="enterExploreMode()" class="w-full bg-yellow-600 hover:bg-yellow-500 text-slate-900 font-black py-4 px-6 rounded-xl shadow-lg transition transform hover:-translate-y-1 active:scale-95 text-lg">
+                    🗺️ 自由探索全境
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主排版 -->
+    <div class="flex flex-col md:flex-row-reverse h-screen w-screen overflow-hidden flat-bg">
+        
+        <!-- ================= 地圖區域 ================= -->
+        <div class="relative w-full h-[70vh] md:h-screen md:w-[70vw] shrink-0 z-0">
+            <!-- Leaflet Map Container -->
+            <div id="map-container" class="w-full h-full"></div>
+            
+            <!-- 左上角資訊面板 -->
+            <div class="absolute top-4 left-4 z-[1000] flex gap-2 pointer-events-none">
+                <div class="bg-slate-800/90 backdrop-blur rounded-xl p-2 md:p-3 px-3 md:px-4 border border-slate-700 pointer-events-auto flex items-center gap-3 shadow-lg">
+                    <div class="text-center min-w-[35px] md:min-w-[40px]">
+                        <p class="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">總分</p>
+                        <p class="text-xl md:text-2xl font-black text-yellow-400 leading-none" id="score-display">0</p>
+                    </div>
+                    <div class="w-px h-6 md:h-8 bg-slate-600"></div>
+                    <div class="text-center min-w-[35px] md:min-w-[40px]">
+                        <p class="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">進度</p>
+                        <p class="text-lg md:text-xl font-bold text-slate-200 leading-none"><span id="round-display">1</span><span class="text-[10px] md:text-sm text-slate-500">/10</span></p>
+                    </div>
+                </div>
+                <button onclick="zoomToChina()" class="bg-slate-800/90 backdrop-blur shadow-lg rounded-xl p-3 pointer-events-auto hover:bg-slate-700 transition border border-slate-700 text-slate-300 hover:text-yellow-400 flex items-center justify-center" title="重設視角至全境">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path><path d="M2 12h20"></path></svg>
+                </button>
+            </div>
+            
+            <!-- 右下角縮放按鈕 -->
+            <div class="absolute bottom-4 right-4 md:bottom-6 md:right-6 z-[1000] flex flex-col gap-2 pointer-events-auto">
+                <button onclick="map.zoomIn()" class="bg-slate-800/90 backdrop-blur shadow-lg rounded-xl w-10 h-10 md:w-12 md:h-12 flex items-center justify-center hover:bg-slate-700 transition border border-slate-600 text-slate-300 hover:text-white text-xl md:text-2xl font-bold">＋</button>
+                <button onclick="map.zoomOut()" class="bg-slate-800/90 backdrop-blur shadow-lg rounded-xl w-10 h-10 md:w-12 md:h-12 flex items-center justify-center hover:bg-slate-700 transition border border-slate-600 text-slate-300 hover:text-white text-xl md:text-2xl font-bold">－</button>
+            </div>
+        </div>
+
+        <!-- ================= 題目與資訊區域 ================= -->
+        <div class="w-full h-[30vh] md:h-screen md:w-[30vw] shrink-0 bg-slate-900 border-t md:border-t-0 md:border-r border-slate-800 flex flex-col z-10 shadow-2xl overflow-y-auto relative">
+            
+            <div class="flex flex-col items-center justify-center min-h-max p-4 md:p-6 w-full my-auto h-full relative">
+                
+                <!-- 1. 遊戲中的題目卡 -->
+                <div id="prompt-card" class="w-full flex flex-col items-center justify-center transition-all duration-300 py-2">
+                    <span id="difficulty-badge" class="px-3 py-1 bg-yellow-900/40 text-yellow-400 text-[10px] md:text-xs font-bold rounded-full mb-3 md:mb-5 border border-yellow-700/50">第 1 題</span>
+                    
+                    <div class="flex flex-row md:flex-col items-center justify-center gap-4 md:gap-0">
+                        <div id="target-abbr" class="h-16 w-16 md:h-24 md:w-24 rounded-full shadow-lg border-4 border-slate-700 md:mb-4 bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center text-3xl md:text-5xl font-black text-yellow-500">京</div>
+                        <div>
+                            <h2 id="target-name" class="text-xl md:text-3xl font-black text-white text-center tracking-wide">北京市</h2>
+                            <p id="target-hint" class="text-[11px] md:text-sm text-slate-400 font-medium text-center mt-1 md:mt-2">省會：北京 | 華北地區</p>
+                        </div>
+                    </div>
+                    
+                    <button onclick="enterExploreMode()" class="mt-5 md:mt-8 text-xs md:text-sm font-bold text-slate-400 hover:text-yellow-400 underline decoration-slate-600 underline-offset-4 transition">
+                        🗺️ 放棄挑戰，進入探索模式
+                    </button>
+                </div>
+
+                <!-- 2. 遊戲中的結果卡 -->
+                <div id="result-card" class="w-full flex flex-col items-center justify-center hidden transition-all duration-300 py-2 absolute inset-0 bg-slate-900 px-4">
+                    <p id="result-message" class="w-full text-center text-xs md:text-base text-slate-300 font-bold mb-1 mt-auto">詳細訊息</p>
+                    <p id="result-points" class="w-full text-center text-3xl md:text-4xl font-black mb-3 md:mb-6 text-green-400">+0 分</p>
+                    
+                    <div class="w-full flex flex-col gap-2 md:gap-3 mb-4 md:mb-8 max-w-[280px]">
+                        <div class="bg-slate-800 rounded-lg md:rounded-xl p-2 md:p-3 text-center border border-slate-700 w-full shadow-inner">
+                            <p class="font-bold text-green-500 text-[10px] md:text-xs mb-0.5">正確目標</p> 
+                            <p id="correct-region" class="font-bold text-slate-200 text-sm md:text-base">北京市 (華北地區)</p>
+                        </div>
+                        <div id="user-guess-info" class="bg-slate-800 rounded-lg md:rounded-xl p-2 md:p-3 text-center border border-slate-700 hidden w-full shadow-inner">
+                            <p class="font-bold text-red-400 text-[10px] md:text-xs mb-0.5">你的點擊</p> 
+                            <p id="guess-name" class="font-bold text-slate-100 text-sm md:text-lg mb-0.5 leading-tight">天津市</p>
+                            <p id="guess-region" class="text-slate-400 text-[10px] md:text-xs">同屬華北地區</p>
+                        </div>
+                    </div>
+
+                    <button id="next-btn" onclick="nextRound()" class="w-full max-w-[280px] bg-yellow-600 hover:bg-yellow-500 text-slate-900 font-black py-2.5 md:py-3.5 px-4 md:px-6 rounded-lg md:rounded-xl shadow-md transition transform hover:-translate-y-1 active:scale-95 text-sm md:text-base mb-2">
+                        下一題
+                    </button>
+                    
+                    <button onclick="enterExploreMode()" class="w-full max-w-[280px] bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 md:py-3.5 px-4 md:px-6 rounded-lg md:rounded-xl border border-slate-700 transition text-sm md:text-base mb-auto">
+                        🗺️ 放棄挑戰，進入探索模式
+                    </button>
+                </div>
+
+                <!-- 3. 探索模式卡 -->
+                <div id="explore-card" class="w-full flex flex-col items-center justify-center hidden transition-all duration-300 py-2 absolute inset-0 bg-slate-900 px-4">
+                    <h2 class="text-2xl md:text-3xl font-black text-yellow-400 text-center tracking-wide mb-2 md:mb-4 mt-auto">探索神州</h2>
+                    <p class="text-xs md:text-sm text-slate-300 text-center mb-6">已載入 Google Maps 繁體中文標籤<br>放大地圖即可觀看地名、公路與各級城市</p>
+                    
+                    <div class="bg-slate-800 rounded-xl p-4 w-full max-w-[280px] mb-6 border border-slate-700 flex flex-col gap-3">
+                        <p class="text-slate-400 text-xs font-bold mb-1 border-b border-slate-700 pb-2">圖層說明</p>
+                        <p class="text-[11px] text-slate-300 leading-relaxed">
+                            地圖採用真實比例的地理地形圖磚，完整呈現了青藏高原的隆起、四川盆地的低窪以及東部沿海平原。<br><br>為保持畫面簡潔，當您「放大地圖」時，才會顯示詳細的繁體中文地標與道路網。
+                        </p>
+                    </div>
+
+                    <button onclick="restartGame()" class="w-full max-w-[280px] bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 md:py-3.5 px-4 md:px-6 rounded-lg md:rounded-xl shadow-md transition transform hover:-translate-y-1 active:scale-95 text-sm md:text-base mb-auto border border-slate-600">
+                        退出探索，重新開始挑戰
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ================= 核心資料庫 =================
+        const PROVINCE_DETAILS = {
+            "北京市": { abbr: "京", capital: "北京", region: "華北" },
+            "天津市": { abbr: "津", capital: "天津", region: "華北" },
+            "河北省": { abbr: "冀", capital: "石家莊", region: "華北" },
+            "山西省": { abbr: "晉", capital: "太原", region: "華北" },
+            "内蒙古自治区": { abbr: "內蒙古", capital: "呼和浩特", region: "華北" },
+            "辽宁省": { abbr: "遼", capital: "瀋陽", region: "東北" },
+            "吉林省": { abbr: "吉", capital: "長春", region: "東北" },
+            "黑龙江省": { abbr: "黑", capital: "哈爾濱", region: "東北" },
+            "上海市": { abbr: "滬", capital: "上海", region: "華東" },
+            "江苏省": { abbr: "蘇", capital: "南京", region: "華東" },
+            "浙江省": { abbr: "浙", capital: "杭州", region: "華東" },
+            "安徽省": { abbr: "皖", capital: "合肥", region: "華東" },
+            "福建省": { abbr: "闽", capital: "福州", region: "華東" },
+            "江西省": { abbr: "贛", capital: "南昌", region: "華東" },
+            "山东省": { abbr: "魯", capital: "濟南", region: "華東" },
+            "台湾省": { abbr: "台", capital: "台北", region: "華東" },
+            "河南省": { abbr: "豫", capital: "鄭州", region: "華中" },
+            "湖北省": { abbr: "鄂", capital: "武漢", region: "華中" },
+            "湖南省": { abbr: "湘", capital: "長沙", region: "華中" },
+            "广东省": { abbr: "粵", capital: "廣州", region: "華南" },
+            "广西壮族自治区": { abbr: "桂", capital: "南寧", region: "華南" },
+            "海南省": { abbr: "瓊", capital: "海口", region: "華南" },
+            "香港特别行政区": { abbr: "港", capital: "香港", region: "華南" },
+            "澳门特别行政区": { abbr: "澳", capital: "澳門", region: "華南" },
+            "重庆市": { abbr: "渝", capital: "重慶", region: "西南" },
+            "四川省": { abbr: "川/蜀", capital: "成都", region: "西南" },
+            "贵州省": { abbr: "黔/貴", capital: "貴陽", region: "西南" },
+            "云南省": { abbr: "滇/雲", capital: "昆明", region: "西南" },
+            "西藏自治区": { abbr: "藏", capital: "拉薩", region: "西南" },
+            "陕西省": { abbr: "陝/秦", capital: "西安", region: "西北" },
+            "甘肃省": { abbr: "甘/隴", capital: "蘭州", region: "西北" },
+            "青海省": { abbr: "青", capital: "西寧", region: "西北" },
+            "宁夏回族自治区": { abbr: "寧", capital: "銀川", region: "西北" },
+            "新疆维吾尔自治区": { abbr: "新", capital: "烏魯木齊", region: "西北" }
+        };
+
+        const ZH_TW_MAP = {
+            "北京市": "北京市", "天津市": "天津市", "河北省": "河北省", "山西省": "山西省", "内蒙古自治区": "內蒙古自治區",
+            "辽宁省": "遼寧省", "吉林省": "吉林省", "黑龙江省": "黑龍江省", "上海市": "上海市", "江苏省": "江蘇省",
+            "浙江省": "浙江省", "安徽省": "安徽省", "福建省": "福建省", "江西省": "江西省", "山东省": "山東省",
+            "河南省": "河南省", "湖北省": "湖北省", "湖南省": "湖南省", "广东省": "廣東省", "广西壮族自治区": "廣西壯族自治區",
+            "海南省": "海南省", "重庆市": "重慶市", "四川省": "四川省", "贵州省": "貴州省", "云南省": "雲南省",
+            "西藏自治区": "西藏自治區", "陕西省": "陝西省", "甘肃省": "甘肅省", "青海省": "青海省", "宁夏回族自治区": "寧夏回族自治區",
+            "新疆维吾尔自治区": "新疆維吾爾自治區", "台湾省": "台灣省", "香港特别行政区": "香港特別行政區", "澳门特别行政区": "澳門特別行政區"
+        };
+
+        // 中國 34 省相鄰關係表 (使用 rawName 鍵值對應)
+        const ADJACENCY = {
+            "北京市": ["天津市", "河北省"],
+            "天津市": ["北京市", "河北省"],
+            "河北省": ["北京市", "天津市", "山西省", "河南省", "山东省", "内蒙古自治区", "辽宁省"],
+            "山西省": ["河北省", "河南省", "陕西省", "内蒙古自治区"],
+            "内蒙古自治区": ["黑龙江省", "吉林省", "辽宁省", "河北省", "山西省", "陕西省", "宁夏回族自治区", "甘肃省"],
+            "辽宁省": ["内蒙古自治区", "吉林省", "河北省"],
+            "吉林省": ["辽宁省", "黑龙江省", "内蒙古自治区"],
+            "黑龙江省": ["吉林省", "内蒙古自治区"],
+            "上海市": ["江苏省", "浙江省"],
+            "江苏省": ["上海市", "浙江省", "安徽省", "山东省"],
+            "浙江省": ["上海市", "江苏省", "安徽省", "江西省", "福建省"],
+            "安徽省": ["江苏省", "浙江省", "江西省", "湖北省", "河南省", "山东省"],
+            "福建省": ["浙江省", "江西省", "广东省", "台湾省"],
+            "江西省": ["浙江省", "福建省", "广东省", "湖南省", "湖北省", "安徽省"],
+            "山东省": ["河北省", "河南省", "安徽省", "江苏省"],
+            "河南省": ["河北省", "山东省", "安徽省", "湖北省", "陕西省", "山西省"],
+            "湖北省": ["河南省", "安徽省", "江西省", "湖南省", "重庆市", "陕西省"],
+            "湖南省": ["湖北省", "江西省", "广东省", "广西壮族自治区", "贵州省", "重庆市"],
+            "广东省": ["福建省", "江西省", "湖南省", "广西壮族自治区", "海南省", "香港特别行政区", "澳门特别行政区"],
+            "广西壮族自治区": ["广东省", "湖南省", "贵州省", "云南省"],
+            "海南省": ["广东省", "广西壮族自治区"],
+            "重庆市": ["湖北省", "湖南省", "贵州省", "四川省", "陕西省"],
+            "四川省": ["重庆市", "贵州省", "云南省", "西藏自治区", "青海省", "甘肃省", "陕西省"],
+            "贵州省": ["四川省", "重庆市", "湖南省", "广西壮族自治区", "云南省"],
+            "云南省": ["广西壮族自治区", "贵州省", "四川省", "西藏自治区"],
+            "西藏自治区": ["云南省", "四川省", "青海省", "新疆维吾尔自治区"],
+            "陕西省": ["内蒙古自治区", "山西省", "河南省", "湖北省", "重庆市", "四川省", "甘肃省", "宁夏回族自治区"],
+            "甘肃省": ["内蒙古自治区", "宁夏回族自治区", "陕西省", "四川省", "青海省", "新疆维吾尔自治区"],
+            "青海省": ["甘肃省", "四川省", "西藏自治区", "新疆维吾尔自治区"],
+            "宁夏回族自治区": ["内蒙古自治区", "陕西省", "甘肃省"],
+            "新疆维吾尔自治区": ["甘肃省", "青海省", "西藏自治区"],
+            "香港特别行政区": ["广东省"],
+            "澳门特别行政区": ["广东省"],
+            "台湾省": ["福建省"]
+        };
+
+        const CAPITALS = [
+            { name: "北京", lat: 39.9042, lon: 116.4074 }, { name: "天津", lat: 39.0842, lon: 117.2009 },
+            { name: "石家莊", lat: 38.0428, lon: 114.5149 }, { name: "太原", lat: 37.8706, lon: 112.5489 },
+            { name: "呼和浩特", lat: 40.8423, lon: 111.7492 }, { name: "瀋陽", lat: 41.8057, lon: 123.4315 },
+            { name: "長春", lat: 43.8171, lon: 125.3235 }, { name: "哈爾濱", lat: 45.8038, lon: 126.5350 },
+            { name: "上海", lat: 31.2304, lon: 121.4737 }, { name: "南京", lat: 32.0603, lon: 118.7969 },
+            { name: "杭州", lat: 30.2741, lon: 120.1551 }, { name: "合肥", lat: 31.8206, lon: 117.2272 },
+            { name: "福州", lat: 26.0745, lon: 119.2965 }, { name: "南昌", lat: 28.6820, lon: 115.8579 },
+            { name: "濟南", lat: 36.6512, lon: 117.1201 }, { name: "鄭州", lat: 34.7466, lon: 113.6254 },
+            { name: "武漢", lat: 30.5928, lon: 114.3055 }, { name: "長沙", lat: 28.2282, lon: 112.9388 },
+            { name: "廣州", lat: 23.1291, lon: 113.2644 }, { name: "南寧", lat: 22.8170, lon: 108.3665 },
+            { name: "海口", lat: 20.0200, lon: 110.3295 }, { name: "重慶", lat: 29.5630, lon: 106.5516 },
+            { name: "成都", lat: 30.5723, lon: 104.0665 }, { name: "貴陽", lat: 26.6470, lon: 106.6302 },
+            { name: "昆明", lat: 25.0406, lon: 102.7123 }, { name: "拉薩", lat: 29.6456, lon: 91.1409 },
+            { name: "西安", lat: 34.3413, lon: 108.9398 }, { name: "蘭州", lat: 36.0611, lon: 103.8343 },
+            { name: "西寧", lat: 36.6171, lon: 101.7782 }, { name: "銀川", lat: 38.4872, lon: 106.2309 },
+            { name: "烏魯木齊", lat: 43.8256, lon: 87.6168 }, { name: "台北", lat: 25.0330, lon: 121.5654 },
+            { name: "香港", lat: 22.3193, lon: 114.1694 }, { name: "澳門", lat: 22.1987, lon: 113.5439 }
+        ];
+
+        // 鮮豔但不搶眼的色盤
+        const PALETTE = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899'];
+        const PROVINCE_COLORS = {};
+
+        // 四色定理演算：為地圖賦予不相鄰的獨特色彩
+        function assignColors() {
+            for (let prov in ADJACENCY) {
+                let neighbors = ADJACENCY[prov] || [];
+                let usedColors = new Set(neighbors.map(n => PROVINCE_COLORS[n]).filter(c => c));
+                for (let color of PALETTE) {
+                    if (!usedColors.has(color)) {
+                        PROVINCE_COLORS[prov] = color;
+                        break;
+                    }
+                }
+                if (!PROVINCE_COLORS[prov]) PROVINCE_COLORS[prov] = PALETTE[0];
+            }
+        }
+
+        let map, geojsonLayer, capitalsLayer, chineseLabelsLayer, outlineLayer, provinceLabelsGroup, worldOutlineLayer;
+        let geoDataGlobal = null;
+        let mapFeaturesData = {}; 
+        let gameQueue = []; 
+        let currentTargetName = null;
+        let score = 0, currentRound = 1;
+        const totalRounds = 10;
+        let isWaitingForNext = false;
+        let isExploreMode = false; 
+
+        // ================= 初始化與地圖載入 =================
+        async function init() {
+            try {
+                // 產生顏色對應表
+                assignColors();
+                
+                await loadMapData();
+                document.getElementById('loading').style.display = 'none';
+                generateGameQueue();
+                startRound();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('loading').innerHTML = `<div class="text-red-500 text-6xl mb-4">⚠️</div><h2 class="text-xl font-black text-white">網路環境阻擋連線，無法載入地圖資料</h2>`;
+            }
+        }
+
+        async function loadMapData() {
+            // 載入省級 GeoJSON
+            const geoJsonUrls = [
+                'https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json',
+                'https://raw.githubusercontent.com/longwosion/geojson-map-china/master/china.json'
+            ];
+            
+            for (let url of geoJsonUrls) {
+                try {
+                    const response = await fetch(url);
+                    if (response.ok) { geoDataGlobal = await response.json(); break; }
+                } catch (e) {}
+            }
+            if (!geoDataGlobal) throw new Error("無省份資源");
+
+            initLeafletMap();
+
+            // 非同步嘗試載入全國最外部疆界 (若無法載入也不影響核心遊戲)
+            try {
+                const outlineRes = await fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000.json');
+                const outlineGeo = await outlineRes.json();
+                outlineLayer = L.geoJSON(outlineGeo, {
+                    pane: 'outlinePane', // 指定到不可點擊圖層區
+                    style: { color: '#020617', weight: 2.5, fill: false, opacity: 0.9 }, // 修改粗細從 4.5 降為 2.5
+                    interactive: false // 再次確認關閉互動
+                });
+                if(map) outlineLayer.addTo(map);
+            } catch(e) { console.log('外部疆界輔助線載入失敗'); }
+
+            // 非同步嘗試載入世界各國疆界 (僅於探索模式使用)
+            try {
+                const worldRes = await fetch('https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson');
+                const worldGeo = await worldRes.json();
+                worldOutlineLayer = L.geoJSON(worldGeo, {
+                    pane: 'outlinePane', 
+                    style: { color: '#020617', weight: 1.0, fill: false, opacity: 0.9 }, // 黑色實線，調整為更細的 1.0
+                    interactive: false
+                });
+            } catch(e) { console.log('世界國界載入失敗'); }
+        }
+
+        function getProvinceStyle(rawName) {
+            return {
+                fillColor: PROVINCE_COLORS[rawName] || '#ffffff',
+                fillOpacity: 0.35, // 半透明以透出地形
+                weight: 1.5,
+                color: '#334155', 
+                dashArray: '2'
+            };
+        }
+
+        function initLeafletMap() {
+            map = L.map('map-container', {
+                center: [36, 105],
+                zoom: 4, minZoom: 3, maxZoom: 8,
+                zoomControl: false,
+                attributionControl: false,
+                maxBounds: [[5, 60], [60, 150]], 
+                maxBoundsViscosity: 0.8
+            });
+
+            // 1. Esri 真實地形圖磚
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 8
+            }).addTo(map);
+
+            // 2. 建立不可點擊專屬 Pane (解決點擊阻擋問題)
+            map.createPane('outlinePane');
+            map.getPane('outlinePane').style.zIndex = 450;
+            map.getPane('outlinePane').style.pointerEvents = 'none';
+
+            map.createPane('labelsPane');
+            map.getPane('labelsPane').style.zIndex = 650;
+            map.getPane('labelsPane').style.pointerEvents = 'none';
+
+            // 3. Google Maps 純繁體中文標籤圖層 (僅於探索模式啟用)
+            // lyrs=h 表示只要標籤圖層 (透明背景)，hl=zh-TW 強制輸出繁體中文
+            chineseLabelsLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}&hl=zh-TW', {
+                pane: 'labelsPane',
+                opacity: 0.9
+            });
+
+            provinceLabelsGroup = L.layerGroup();
+
+            // 監聽縮放事件，動態顯示/隱藏細節標籤，避免初始畫面太雜亂
+            map.on('zoomend', function() {
+                if (isExploreMode) {
+                    if (map.getZoom() >= 6) {
+                        if (!map.hasLayer(chineseLabelsLayer)) map.addLayer(chineseLabelsLayer);
+                    } else {
+                        if (map.hasLayer(chineseLabelsLayer)) map.removeLayer(chineseLabelsLayer);
+                    }
+                }
+            });
+
+            capitalsLayer = L.layerGroup();
+            CAPITALS.forEach(c => {
+                const marker = L.circleMarker([c.lat, c.lon], {
+                    radius: 4, fillColor: "#ef4444", color: "#ffffff", weight: 1.5, fillOpacity: 1, interactive: false 
+                });
+                marker.bindTooltip(c.name, {
+                    permanent: true, direction: 'right', className: 'capital-tooltip', offset: [4, 0]
+                });
+                capitalsLayer.addLayer(marker);
+            });
+
+            function onEachFeature(feature, layer) {
+                const rawName = feature.properties.name;
+                const details = PROVINCE_DETAILS[rawName] || { abbr: "?", capital: "?", region: "未知" };
+                const zhName = ZH_TW_MAP[rawName] || rawName;
+
+                mapFeaturesData[rawName] = {
+                    layer: layer, feature: feature, name: zhName, rawName: rawName,
+                    abbr: details.abbr, capital: details.capital, region: details.region
+                };
+
+                layer.on({
+                    mouseover: (e) => {
+                        if (isExploreMode) return;
+                        const l = e.target;
+                        // Hover 時加深顏色增加互動感
+                        l.setStyle({ fillOpacity: 0.7, color: '#0f172a', dashArray: '' });
+                        l.bringToFront();
+                    },
+                    mouseout: (e) => {
+                        if (isExploreMode) return;
+                        geojsonLayer.resetStyle(e.target);
+                    },
+                    click: () => {
+                        if (isExploreMode) return;
+                        handleGuess(rawName);
+                    }
+                });
+            }
+
+            geojsonLayer = L.geoJSON(geoDataGlobal, {
+                style: function(feature) {
+                    return getProvinceStyle(feature.properties.name);
+                },
+                onEachFeature: onEachFeature
+            }).addTo(map);
+        }
+
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function zoomToChina() {
+            if(map) map.flyTo([36, 105], 4, { duration: 1.5 });
+        }
+
+        // ================= 遊戲邏輯 =================
+        function generateGameQueue() {
+            const validProvinces = geoDataGlobal.features
+                .map(f => f.properties.name)
+                .filter(rawName => PROVINCE_DETAILS[rawName] && ZH_TW_MAP[rawName] !== "台灣省" && rawName !== "台湾省");
+            gameQueue = shuffle([...validProvinces]).slice(0, 10);
+        }
+
+        function startRound() {
+            isWaitingForNext = false;
+            
+            if (geojsonLayer) {
+                geojsonLayer.eachLayer(layer => {
+                    geojsonLayer.resetStyle(layer);
+                });
+            }
+
+            currentTargetName = gameQueue[currentRound - 1];
+            const targetData = mapFeaturesData[currentTargetName];
+
+            document.getElementById('round-display').innerText = currentRound;
+            document.getElementById('difficulty-badge').innerText = `第 ${currentRound} 題`;
+            
+            document.getElementById('target-abbr').innerText = targetData.abbr.split('/')[0];
+            document.getElementById('target-name').innerText = targetData.name;
+            document.getElementById('target-hint').innerText = `省會：${targetData.capital} | ${targetData.region}`;
+            
+            document.getElementById('prompt-card').classList.remove('hidden');
+            document.getElementById('result-card').classList.add('hidden');
+        }
+
+        function handleGuess(clickedRawName) {
+            if (isWaitingForNext || !currentTargetName) return;
+            
+            const clickedData = mapFeaturesData[clickedRawName];
+            if(!clickedData || clickedData.region === "未知") return; 
+
+            isWaitingForNext = true;
+            const targetData = mapFeaturesData[currentTargetName];
+            
+            let pointsEarned = 0; let resultType = 'wrong'; 
+
+            if (clickedRawName === currentTargetName) { 
+                pointsEarned = 10; resultType = 'exact'; 
+            } else if (ADJACENCY[currentTargetName] && ADJACENCY[currentTargetName].includes(clickedRawName)) { 
+                // 點擊到相鄰省份
+                pointsEarned = 7; resultType = 'adjacent'; 
+            } else { 
+                pointsEarned = 0; resultType = 'wrong'; 
+            }
+
+            score += pointsEarned;
+            document.getElementById('score-display').innerText = score;
+
+            highlightMapResult(clickedData.layer, targetData.layer, resultType);
+            showResultCard(clickedData, targetData, pointsEarned, resultType);
+        }
+
+        function highlightMapResult(clickedLayer, targetLayer, resultType) {
+            // 將其他區塊稍微變暗
+            geojsonLayer.eachLayer(layer => {
+                layer.setStyle({ fillOpacity: 0.1, color: '#475569', weight: 1 });
+            });
+
+            let clickColor = "#ef4444"; // 預設錯為紅
+            if (resultType === 'exact') clickColor = "#22c55e"; // 精準綠
+            else if (resultType === 'adjacent') clickColor = "#eab308"; // 相鄰黃
+
+            if (clickedLayer) {
+                clickedLayer.setStyle({
+                    fillColor: clickColor, fillOpacity: 0.7, weight: 3, color: '#ffffff', dashArray: ''
+                });
+                clickedLayer.bringToFront();
+            }
+
+            // 若不是完全命中，也要把正確答案框出來
+            if (targetLayer && resultType !== 'exact') {
+                targetLayer.setStyle({
+                    fillColor: "#22c55e", fillOpacity: 0.7, weight: 3, color: '#ffffff', dashArray: ''
+                });
+                targetLayer.bringToFront();
+            }
+
+            if (targetLayer) {
+                map.flyToBounds(targetLayer.getBounds(), { duration: 1.5, padding: [50, 50] });
+            }
+        }
+
+        function showResultCard(clickedData, targetData, points, resultType) {
+            document.getElementById('prompt-card').classList.add('hidden');
+            const resultCard = document.getElementById('result-card');
+            resultCard.classList.remove('hidden');
+
+            const message = document.getElementById('result-message');
+            const pointsEl = document.getElementById('result-points');
+            const nextBtn = document.getElementById('next-btn');
+            
+            document.getElementById('correct-region').innerText = `${targetData.name} (${targetData.region})`;
+            
+            const userGuessInfo = document.getElementById('user-guess-info');
+            const guessName = document.getElementById('guess-name');
+            const guessRegion = document.getElementById('guess-region');
+
+            pointsEl.innerText = `+${points} 分`;
+            
+            if (currentRound >= totalRounds) {
+                nextBtn.innerText = "查看最終成績";
+            } else {
+                nextBtn.innerText = "下一題";
+            }
+
+            if (resultType === 'exact') {
+                message.innerHTML = `太棒了！精準命中！`;
+                message.className = 'w-full text-center mt-auto text-sm md:text-lg text-green-400 font-bold md:mb-1';
+                pointsEl.className = 'w-full text-center text-3xl md:text-4xl font-black mb-3 md:mb-6 text-green-400';
+                userGuessInfo.classList.add('hidden');
+            } else if (resultType === 'adjacent') {
+                message.innerHTML = `差一點！位於相鄰省份`;
+                message.className = 'w-full text-center mt-auto text-sm md:text-lg text-yellow-400 font-bold md:mb-1';
+                pointsEl.className = 'w-full text-center text-3xl md:text-4xl font-black mb-3 md:mb-6 text-yellow-400';
+                userGuessInfo.classList.remove('hidden');
+                
+                guessName.innerText = clickedData.name;
+                guessRegion.innerText = `相鄰於正確目標`;
+            } else {
+                message.innerHTML = `哎呀，完全猜錯了！`;
+                message.className = 'w-full text-center mt-auto text-sm md:text-lg text-red-400 font-bold md:mb-1';
+                pointsEl.className = 'w-full text-center text-3xl md:text-4xl font-black mb-3 md:mb-6 text-red-400';
+                userGuessInfo.classList.remove('hidden');
+                
+                guessName.innerText = clickedData.name;
+                guessRegion.innerText = `未與正確目標相鄰`;
+            }
+        }
+
+        function nextRound() {
+            if (currentRound >= totalRounds) {
+                document.getElementById('final-score').innerText = score;
+                let rank = score === 100 ? "👑 神州地理大師！" : (score >= 80 ? "🚄 走遍大江南北" : (score >= 50 ? "🗺️ 省際旅行家" : (score >= 20 ? "🧭 剛出省的新手" : "🏠 徹底的路痴 (笑)")));
+                document.getElementById('rank-message').innerText = rank;
+                document.getElementById('game-over').classList.remove('hidden');
+                return;
+            }
+            currentRound++;
+            startRound();
+        }
+
+        // ================= 探索模式 =================
+        function enterExploreMode() {
+            document.getElementById('game-over').classList.add('hidden');
+            document.getElementById('prompt-card').classList.add('hidden');
+            document.getElementById('result-card').classList.add('hidden');
+            document.getElementById('explore-card').classList.remove('hidden');
+            
+            isExploreMode = true;
+
+            map.addLayer(capitalsLayer);
+
+            // 根據當前縮放等級決定是否顯示細節標籤
+            if (map.getZoom() >= 6) {
+                map.addLayer(chineseLabelsLayer);
+            }
+
+            // 放寬視角限制，允許探索周邊及世界其他國家
+            map.setMaxBounds(null);
+
+            // 加入世界其他國家國界圖層
+            if (worldOutlineLayer) map.addLayer(worldOutlineLayer);
+
+            // 特殊形狀省份的自訂標籤座標 (修正甘肅省等幾何中心落在其他省份的問題)
+            const customCenters = {
+                "甘肃省": [38.5, 102.5],
+                "内蒙古自治区": [44.0, 113.0],
+                "陕西省": [35.5, 109.0],
+                "河北省": [38.5, 115.5],
+                "海南省": [19.2, 109.8] // 將標籤強制固定在海南島陸地上
+            };
+
+            geojsonLayer.eachLayer(layer => {
+                // 將省份變透明以透出完整的線上地標與水系
+                layer.setStyle({ fillOpacity: 0.05, color: '#1e293b', weight: 2, dashArray: '4' });
+                
+                // 綁定省份名稱
+                const rawName = layer.feature.properties.name;
+                const zhName = mapFeaturesData[rawName].name;
+                
+                // 若有自訂中心點則優先使用，否則使用預設的 Polygon 中心
+                let center = customCenters[rawName] ? customCenters[rawName] : layer.getBounds().getCenter();
+                
+                const tooltip = L.tooltip({
+                    permanent: true, direction: 'center', className: 'province-tooltip'
+                })
+                .setLatLng(center)
+                .setContent(zhName);
+                
+                provinceLabelsGroup.addLayer(tooltip);
+            });
+
+            map.addLayer(provinceLabelsGroup);
+            if (outlineLayer) outlineLayer.bringToFront();
+            zoomToChina(); 
+        }
+
+        function restartGame() {
+            isExploreMode = false;
+            
+            map.removeLayer(capitalsLayer);
+            if (map.hasLayer(chineseLabelsLayer)) map.removeLayer(chineseLabelsLayer);
+            map.removeLayer(provinceLabelsGroup);
+            provinceLabelsGroup.clearLayers();
+            
+            // 移除世界其他國家國界圖層並恢復視角限制
+            if (worldOutlineLayer && map.hasLayer(worldOutlineLayer)) map.removeLayer(worldOutlineLayer);
+            map.setMaxBounds([[5, 60], [60, 150]]);
+            
+            geojsonLayer.eachLayer(layer => {
+                // 恢復色彩樣式
+                geojsonLayer.resetStyle(layer);
+            });
+            
+            document.getElementById('explore-card').classList.add('hidden');
+            document.getElementById('game-over').classList.add('hidden');
+            
+            score = 0; currentRound = 1;
+            document.getElementById('score-display').innerText = '0';
+            
+            zoomToChina();
+            generateGameQueue();
+            startRound();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
