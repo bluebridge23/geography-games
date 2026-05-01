@@ -39,7 +39,6 @@
             flex-shrink: 0;
         }
 
-        /* 標示每排最後一張牌 */
         .card.last-card-in-row {
             outline: 3px solid #fbbf24;
             outline-offset: -3px;
@@ -140,7 +139,12 @@
         #msg-overlay.non-blocking { background-color: transparent; backdrop-filter: none; pointer-events: none; }
         #msg-box { pointer-events: auto; }
 
+        /* 電腦版與手機版準備區高度優化 */
         @media (max-width: 1023px) {
+            #staging-sidebar {
+                height: 150px;
+                flex-shrink: 0;
+            }
             #staging-area {
                 flex-wrap: nowrap !important;
                 overflow-x: auto;
@@ -148,22 +152,34 @@
                 padding-left: 1rem;
                 padding-right: 1rem;
                 scroll-behavior: smooth;
+                height: 100%;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            /* 修正電腦版：準備區長度固定與牌列一致，且內部捲動 */
+            #staging-sidebar {
+                max-height: calc(4 * (var(--card-h) + 16px) + 3 * 1rem); 
+                overflow-y: auto;
+            }
+            #staging-area {
+                align-content: flex-start;
             }
         }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden text-slate-100">
 
-    <!-- 返回主選單按鈕 -->
+   <!-- 返回主選單按鈕 -->
 <a href="index.html" style="position: fixed; top: 15px; left: 15px; z-index: 10000; background: rgba(15, 23, 42, 0.8); color: white; padding: 8px 16px; border-radius: 20px; text-decoration: none; font-weight: bold; font-family: sans-serif; backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 6px;">
     <i class="fa-solid fa-arrow-left"></i> 回首頁
 </a>
     <div id="setup-screen" class="absolute inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-95">
         <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl text-center max-w-md w-full border border-gray-700 mx-4">
             <h1 class="text-4xl font-black mb-2 text-yellow-400">🐃 誰是牛頭王</h1>
-            <p class="text-gray-400 mb-8">一局定勝負：物理排序穩定版</p>
+            <p class="text-gray-400 mb-8 text-sm">一局定勝負：物理排序穩定版</p>
             <div class="mb-6 text-left">
-                <label class="block text-gray-300 mb-2 font-bold text-sm">選擇遊玩人數 (2-10人)：</label>
+                <label class="block text-gray-300 mb-2 font-bold text-sm">選擇遊玩人數：</label>
                 <select id="player-count" class="w-full bg-gray-700 text-white border border-gray-600 rounded-lg p-3 outline-none focus:ring-2 focus:ring-yellow-400">
                     <option value="2">2 人</option>
                     <option value="3">3 人</option>
@@ -181,64 +197,59 @@
     </div>
 
     <div id="game-screen" class="hidden flex-1 flex flex-col h-full p-2 md:p-4 max-w-7xl mx-auto w-full relative overflow-y-auto">
-        <!-- 頂部資訊列：優化佈局，保留左上角空間 -->
-        <div class="flex flex-col md:flex-row justify-between items-stretch md:items-end bg-gray-800 p-2 md:p-3 rounded-2xl mb-2 shadow-lg flex-shrink-0 border border-gray-700 gap-2 min-h-[70px] md:min-h-[85px]">
-            
-            <!-- 左側資訊區：將進度靠下顯示，保留左上方空白 -->
+        <!-- 頂部資訊列 -->
+        <div class="flex flex-col md:flex-row justify-between items-stretch md:items-end bg-gray-800 p-2 md:p-3 rounded-2xl mb-4 shadow-lg flex-shrink-0 border border-gray-700 gap-2 min-h-[75px] md:min-h-[90px]">
             <div class="flex flex-row md:flex-col justify-between md:justify-end items-end md:items-start gap-2">
-                <!-- 預留給未來按鈕的空間 (目前隱形或僅作為佔位) -->
-                <div class="hidden md:block h-6 w-full"></div>
-                
+                <div class="hidden md:block h-6 w-full"></div> 
                 <div class="flex items-end gap-3">
-                    <div id="round-info" class="text-xs md:text-sm font-bold text-yellow-400 whitespace-nowrap bg-yellow-400/10 px-2 py-1 rounded-md border border-yellow-400/20">
+                    <div id="round-info" class="text-xs md:text-sm font-bold text-yellow-400 whitespace-nowrap bg-yellow-400/10 px-3 py-1.5 rounded-lg border border-yellow-400/20">
                         進度: 1/10
                     </div>
-                    <!-- 手機版牌堆放在這 -->
                     <div id="deck-anchor" class="md:hidden w-8 h-10 bg-gray-700 rounded-lg border border-gray-600 flex items-center justify-center text-[8px] text-gray-500 relative flex-shrink-0">
                         牌堆
                     </div>
                 </div>
             </div>
-            
-            <!-- 計分板：居中靠下 -->
-            <div id="scoreboard" class="flex flex-wrap gap-1.5 md:gap-2 flex-1 mx-2 justify-center md:justify-start items-end">
-                <!-- 玩家分數將動態插入 -->
-            </div>
-
-            <!-- 電腦版牌堆放在右側 -->
+            <div id="scoreboard" class="flex flex-wrap gap-1.5 md:gap-2 flex-1 mx-2 justify-center md:justify-start items-end"></div>
             <div id="deck-anchor-desktop" class="hidden md:flex w-10 h-14 bg-gray-700 rounded-lg border border-gray-600 items-center justify-center text-[10px] text-gray-500 relative flex-shrink-0 self-end">
                 牌堆
             </div>
         </div>
 
-        <!-- 遊戲主桌面 -->
-        <div class="flex-1 flex flex-col lg:flex-row gap-4 my-auto relative min-h-0 py-2">
+        <!-- 遊戲主佈局 -->
+        <div class="flex-1 flex flex-col relative min-h-0">
             
-            <!-- 準備區：手機版單排橫移 -->
-            <div class="w-full lg:w-80 bg-black bg-opacity-20 rounded-2xl p-4 border border-gray-700 flex flex-col order-1 lg:order-2" id="staging-sidebar">
-                <div class="flex justify-between items-center mb-1 px-1">
-                    <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">準備區</span>
-                    <span id="staging-count" class="text-[10px] text-gray-600">等待中</span>
+            <!-- 上半部：桌面（牌列與準備區） -->
+            <div class="flex flex-col lg:flex-row gap-6 mb-6">
+                
+                <!-- 準備區：修正電腦版高度並開啟內部捲動 -->
+                <div class="w-full lg:w-80 bg-black bg-opacity-20 rounded-2xl p-4 border border-gray-700 flex flex-col order-1 lg:order-2 self-start scrollbar-hide" id="staging-sidebar">
+                    <div class="flex justify-between items-center mb-1 px-1 flex-shrink-0">
+                        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">準備區</span>
+                        <span id="staging-count" class="text-[10px] text-gray-600">等待中</span>
+                    </div>
+                    <!-- 內部卡片網格 -->
+                    <div class="flex flex-wrap lg:grid lg:grid-cols-2 gap-x-3 gap-y-12 justify-center items-center content-start flex-1 pt-8 scrollbar-hide" id="staging-area">
+                        <span class="text-gray-600 text-xs text-center col-span-2 py-4" id="staging-prompt">請選擇手牌...</span>
+                    </div>
                 </div>
-                <div class="flex flex-wrap lg:grid lg:grid-cols-2 gap-x-3 gap-y-12 justify-center items-center content-start flex-1 min-h-[110px] pt-8 scrollbar-hide" id="staging-area">
-                    <span class="text-gray-600 text-xs text-center col-span-2 py-4" id="staging-prompt">請從下方選牌...</span>
+
+                <!-- 牌列區 -->
+                <div id="board-rows" class="flex-1 flex flex-col gap-4 overflow-x-auto pb-2 px-1 scrollbar-hide order-2 lg:order-1">
+                    <div class="row-container flex gap-2 items-center w-max" id="row-0" onclick="handleRowSelect(0)"></div>
+                    <div class="row-container flex gap-2 items-center w-max" id="row-1" onclick="handleRowSelect(1)"></div>
+                    <div class="row-container flex gap-2 items-center w-max" id="row-2" onclick="handleRowSelect(2)"></div>
+                    <div class="row-container flex gap-2 items-center w-max" id="row-3" onclick="handleRowSelect(3)"></div>
                 </div>
             </div>
 
-            <!-- 牌列區 -->
-            <div id="board-rows" class="flex-1 flex flex-col gap-3 overflow-x-auto pb-6 px-2 scrollbar-hide order-2 lg:order-1">
-                <div class="row-container flex gap-2 items-center w-max" id="row-0" onclick="handleRowSelect(0)"></div>
-                <div class="row-container flex gap-2 items-center w-max" id="row-1" onclick="handleRowSelect(1)"></div>
-                <div class="row-container flex gap-2 items-center w-max" id="row-2" onclick="handleRowSelect(2)"></div>
-                <div class="row-container flex gap-2 items-center w-max" id="row-3" onclick="handleRowSelect(3)"></div>
+            <!-- 手牌區域：固定在牌列下方，佔據 100% 寬度 -->
+            <div class="w-full bg-gray-800/40 p-4 md:p-6 rounded-2xl border border-gray-700/50 shadow-inner order-3 mb-10">
+                <div id="player-hand" class="flex flex-wrap justify-center gap-3" style="min-height: calc(var(--card-h) + 15px);"></div>
             </div>
-        </div>
-
-        <!-- 底部手牌區 -->
-        <div class="mt-2 bg-gray-800 p-3 md:p-5 rounded-t-3xl md:rounded-2xl shadow-2xl relative flex-shrink-0 border-t border-gray-700">
-            <div id="player-hand" class="flex flex-wrap justify-center gap-2 pb-4" style="min-height: calc(var(--card-h) + 20px);">
-                <!-- 手牌會自動換行 -->
-            </div>
+            
+            <!-- 底部緩衝空間 -->
+            <div class="h-12 flex-shrink-0 order-4"></div>
         </div>
     </div>
 
@@ -367,7 +378,7 @@
             const handContainer = document.getElementById('player-hand');
             handContainer.innerHTML = '';
             for (let i=0; i<4; i++) document.getElementById(`row-${i}`).innerHTML = '';
-            document.getElementById('staging-area').innerHTML = '<span class="text-gray-600 text-xs text-center col-span-2 py-4" id="staging-prompt">請從下方選牌...</span>';
+            document.getElementById('staging-area').innerHTML = '<span class="text-gray-600 text-xs text-center col-span-2 py-4" id="staging-prompt">請選擇手牌...</span>';
             players[0].hand.forEach((cardObj) => {
                 const cardEl = createCardElement(cardObj);
                 cardEl.classList.add('opacity-0');
@@ -419,7 +430,11 @@
             await animateCardFlight(cardEl.getBoundingClientRect(), placeholder.getBoundingClientRect(), cardObj, true);
             cardEl.remove();
             staging.replaceChild(createCardElement(cardObj, true), placeholder);
-            staging.scrollLeft = staging.scrollWidth;
+            
+            const sidebar = document.getElementById('staging-sidebar');
+            sidebar.scrollTop = sidebar.scrollHeight;
+            sidebar.scrollLeft = sidebar.scrollWidth;
+            
             isAnimating = false;
             processAITurns();
         }
@@ -441,7 +456,10 @@
                 animateCardFlight(anchor, placeholder.getBoundingClientRect(), p.selectedCard, true);
                 await sleep(150);
                 staging.replaceChild(createCardElement(p.selectedCard, true), placeholder);
-                staging.scrollLeft = staging.scrollWidth;
+                
+                const sidebar = document.getElementById('staging-sidebar');
+                sidebar.scrollTop = sidebar.scrollHeight;
+                sidebar.scrollLeft = sidebar.scrollWidth;
             }
             await sleep(500);
             await revealAndResolve();
@@ -456,7 +474,11 @@
                 cEl.innerHTML += `<div class="absolute -top-7 left-0 w-full text-center text-[9px] font-black uppercase ${item.player.isHuman ? 'text-yellow-400' : 'text-gray-400'}">${item.player.name}</div>`;
                 staging.appendChild(cEl);
             }
-            staging.scrollLeft = 0;
+            
+            const sidebar = document.getElementById('staging-sidebar');
+            sidebar.scrollTop = 0;
+            sidebar.scrollLeft = 0;
+            
             await sleep(1500);
             const stagingCards = staging.querySelectorAll('.card');
             for (let i = 0; i < playedCards.length; i++) {
@@ -465,7 +487,7 @@
                 await sleep(800);
             }
             players.forEach(p => p.selectedCard = null);
-            staging.innerHTML = '<span class="text-gray-600 text-xs text-center col-span-2 py-4" id="staging-prompt">請從下方選牌...</span>';
+            staging.innerHTML = '<span class="text-gray-600 text-xs text-center col-span-2 py-4" id="staging-prompt">請選擇手牌...</span>';
             isAnimating = false;
             if (players[0].hand.length === 0) {
                 endRound();
@@ -509,7 +531,7 @@
 
         async function handleRuleB(player) {
             if (player.isHuman) {
-                showMessage("你的牌太小了！", "請點擊其中一列將其收走作為扣分。該卡將成為新的一排起頭。", false, null, true);
+                showMessage("出的牌太小了！", "請點擊其中一列收走作為扣分。", false, null, true);
                 for (let i = 0; i < 4; i++) document.getElementById(`row-${i}`).classList.add('row-selectable');
                 const selectedRowIndex = await new Promise(resolve => { rowSelectionResolver = resolve; });
                 for (let i = 0; i < 4; i++) document.getElementById(`row-${i}`).classList.remove('row-selectable');
