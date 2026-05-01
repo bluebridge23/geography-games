@@ -139,22 +139,32 @@
         #msg-overlay { transition: opacity 0.3s ease; }
         #msg-overlay.non-blocking { background-color: transparent; backdrop-filter: none; pointer-events: none; }
         #msg-box { pointer-events: auto; }
+
+        @media (max-width: 1023px) {
+            #staging-area {
+                flex-wrap: nowrap !important;
+                overflow-x: auto;
+                justify-content: flex-start;
+                padding-left: 1rem;
+                padding-right: 1rem;
+                scroll-behavior: smooth;
+            }
+        }
     </style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden">
+<body class="h-screen flex flex-col overflow-hidden text-slate-100">
 
     <!-- 返回主選單按鈕 -->
 <a href="index.html" style="position: fixed; top: 15px; left: 15px; z-index: 10000; background: rgba(15, 23, 42, 0.8); color: white; padding: 8px 16px; border-radius: 20px; text-decoration: none; font-weight: bold; font-family: sans-serif; backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 6px;">
     <i class="fa-solid fa-arrow-left"></i> 回首頁
 </a>
-
     <div id="setup-screen" class="absolute inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-95">
-        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl text-center max-w-md w-full border border-gray-700">
+        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl text-center max-w-md w-full border border-gray-700 mx-4">
             <h1 class="text-4xl font-black mb-2 text-yellow-400">🐃 誰是牛頭王</h1>
             <p class="text-gray-400 mb-8">一局定勝負：物理排序穩定版</p>
             <div class="mb-6 text-left">
-                <label class="block text-gray-300 mb-2 font-bold">選擇遊玩人數：</label>
-                <select id="player-count" class="w-full bg-gray-700 text-white border border-gray-600 rounded-lg p-3 outline-none">
+                <label class="block text-gray-300 mb-2 font-bold text-sm">選擇遊玩人數 (2-10人)：</label>
+                <select id="player-count" class="w-full bg-gray-700 text-white border border-gray-600 rounded-lg p-3 outline-none focus:ring-2 focus:ring-yellow-400">
                     <option value="2">2 人</option>
                     <option value="3">3 人</option>
                     <option value="4" selected>4 人</option>
@@ -166,52 +176,73 @@
                     <option value="10">10 人</option>
                 </select>
             </div>
-            <button onclick="startGame()" class="w-full bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-4 rounded-xl transition-all text-xl shadow-lg transform hover:scale-105">開始挑戰</button>
+            <button onclick="startGame()" class="w-full bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-4 rounded-xl transition-all text-xl shadow-lg transform hover:scale-105 active:scale-95">開始挑戰</button>
         </div>
     </div>
 
     <div id="game-screen" class="hidden flex-1 flex flex-col h-full p-2 md:p-4 max-w-7xl mx-auto w-full relative overflow-y-auto">
-        <div class="flex justify-between items-center bg-gray-800 p-3 rounded-2xl mb-2 shadow-lg flex-shrink-0 border border-gray-700">
-            <div id="round-info" class="text-lg font-bold text-yellow-400">進度: 1/10 張牌</div>
-            <div id="scoreboard" class="flex gap-3 overflow-x-auto pb-1 flex-1 mx-4 scrollbar-hide"></div>
-            <div id="deck-anchor" class="w-10 h-14 bg-gray-700 rounded-lg border border-gray-600 flex items-center justify-center text-[10px] text-gray-400 relative flex-shrink-0">牌堆</div>
+        <!-- 頂部資訊列：優化佈局，保留左上角空間 -->
+        <div class="flex flex-col md:flex-row justify-between items-stretch md:items-end bg-gray-800 p-2 md:p-3 rounded-2xl mb-2 shadow-lg flex-shrink-0 border border-gray-700 gap-2 min-h-[70px] md:min-h-[85px]">
+            
+            <!-- 左側資訊區：將進度靠下顯示，保留左上方空白 -->
+            <div class="flex flex-row md:flex-col justify-between md:justify-end items-end md:items-start gap-2">
+                <!-- 預留給未來按鈕的空間 (目前隱形或僅作為佔位) -->
+                <div class="hidden md:block h-6 w-full"></div>
+                
+                <div class="flex items-end gap-3">
+                    <div id="round-info" class="text-xs md:text-sm font-bold text-yellow-400 whitespace-nowrap bg-yellow-400/10 px-2 py-1 rounded-md border border-yellow-400/20">
+                        進度: 1/10
+                    </div>
+                    <!-- 手機版牌堆放在這 -->
+                    <div id="deck-anchor" class="md:hidden w-8 h-10 bg-gray-700 rounded-lg border border-gray-600 flex items-center justify-center text-[8px] text-gray-500 relative flex-shrink-0">
+                        牌堆
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 計分板：居中靠下 -->
+            <div id="scoreboard" class="flex flex-wrap gap-1.5 md:gap-2 flex-1 mx-2 justify-center md:justify-start items-end">
+                <!-- 玩家分數將動態插入 -->
+            </div>
+
+            <!-- 電腦版牌堆放在右側 -->
+            <div id="deck-anchor-desktop" class="hidden md:flex w-10 h-14 bg-gray-700 rounded-lg border border-gray-600 items-center justify-center text-[10px] text-gray-500 relative flex-shrink-0 self-end">
+                牌堆
+            </div>
         </div>
 
-        <div class="flex-1 flex flex-col lg:flex-row gap-4 my-auto relative min-h-0 py-4">
-            <div id="board-rows" class="flex-1 flex flex-col gap-3 overflow-x-auto pb-4 px-2 scrollbar-hide">
+        <!-- 遊戲主桌面 -->
+        <div class="flex-1 flex flex-col lg:flex-row gap-4 my-auto relative min-h-0 py-2">
+            
+            <!-- 準備區：手機版單排橫移 -->
+            <div class="w-full lg:w-80 bg-black bg-opacity-20 rounded-2xl p-4 border border-gray-700 flex flex-col order-1 lg:order-2" id="staging-sidebar">
+                <div class="flex justify-between items-center mb-1 px-1">
+                    <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">準備區</span>
+                    <span id="staging-count" class="text-[10px] text-gray-600">等待中</span>
+                </div>
+                <div class="flex flex-wrap lg:grid lg:grid-cols-2 gap-x-3 gap-y-12 justify-center items-center content-start flex-1 min-h-[110px] pt-8 scrollbar-hide" id="staging-area">
+                    <span class="text-gray-600 text-xs text-center col-span-2 py-4" id="staging-prompt">請從下方選牌...</span>
+                </div>
+            </div>
+
+            <!-- 牌列區 -->
+            <div id="board-rows" class="flex-1 flex flex-col gap-3 overflow-x-auto pb-6 px-2 scrollbar-hide order-2 lg:order-1">
                 <div class="row-container flex gap-2 items-center w-max" id="row-0" onclick="handleRowSelect(0)"></div>
                 <div class="row-container flex gap-2 items-center w-max" id="row-1" onclick="handleRowSelect(1)"></div>
                 <div class="row-container flex gap-2 items-center w-max" id="row-2" onclick="handleRowSelect(2)"></div>
                 <div class="row-container flex gap-2 items-center w-max" id="row-3" onclick="handleRowSelect(3)"></div>
             </div>
-
-            <div class="w-full lg:w-80 flex flex-col gap-3">
-                <div class="bg-blue-900 bg-opacity-20 rounded-xl p-3 border border-blue-500 border-opacity-30">
-                    <h3 class="text-xs font-bold text-blue-400 mb-1 text-center">💡 遊戲目標</h3>
-                    <p class="text-[11px] text-gray-400 leading-relaxed text-center">
-                        出完 10 張牌即結束，<br>
-                        收走最少牛頭（扣分最少）者獲勝！
-                    </p>
-                </div>
-
-                <div class="bg-black bg-opacity-20 rounded-2xl p-4 border border-gray-700 flex flex-col flex-1" id="staging-sidebar">
-                    <div class="flex justify-between items-center mb-3 px-1">
-                        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">準備區</span>
-                        <span id="staging-count" class="text-[10px] text-gray-600">等待中</span>
-                    </div>
-                    <!-- ★ 修改重點：增加垂直間距 gap-y-10 並加入頂部內邊距 pt-6 -->
-                    <div class="flex flex-wrap lg:grid lg:grid-cols-2 gap-x-3 gap-y-10 justify-center items-center content-start flex-1 min-h-[100px] pt-6" id="staging-area">
-                        <span class="text-gray-600 text-xs text-center col-span-2 py-4" id="staging-prompt">請從下方選牌...</span>
-                    </div>
-                </div>
-            </div>
         </div>
 
-        <div class="mt-2 bg-gray-800 p-3 md:p-5 rounded-2xl shadow-2xl relative flex-shrink-0 border-t border-gray-700">
-            <div id="player-hand" class="flex flex-wrap justify-center gap-2" style="min-height: calc(var(--card-h) + 10px);"></div>
+        <!-- 底部手牌區 -->
+        <div class="mt-2 bg-gray-800 p-3 md:p-5 rounded-t-3xl md:rounded-2xl shadow-2xl relative flex-shrink-0 border-t border-gray-700">
+            <div id="player-hand" class="flex flex-wrap justify-center gap-2 pb-4" style="min-height: calc(var(--card-h) + 20px);">
+                <!-- 手牌會自動換行 -->
+            </div>
         </div>
     </div>
 
+    <!-- 訊息提示 -->
     <div id="msg-overlay" class="fixed inset-0 flex items-center justify-center z-40 opacity-0 hidden bg-black bg-opacity-70 backdrop-blur-md">
         <div class="bg-gray-800 border-2 border-yellow-500 p-8 rounded-3xl shadow-2xl text-center transform scale-90 transition-all max-w-xs md:max-w-md mx-4" id="msg-box">
             <h2 id="msg-title" class="text-2xl font-black text-white mb-2">提示</h2>
@@ -308,7 +339,7 @@
 
         async function startNewGameRound() {
             currentRound = 1;
-            document.getElementById('round-info').innerText = `進度: ${currentRound}/10 張牌`;
+            document.getElementById('round-info').innerText = `進度: ${currentRound}/10`;
             tableRows = [[], [], [], []];
             deck = [];
             for (let i = 1; i <= DECK_SIZE; i++) deck.push({ value: i, bulls: getBullheads(i) });
@@ -328,8 +359,11 @@
 
         async function renderInitialDeal() {
             isAnimating = true;
-            showMessage("發牌中...", "洗牌並自動排序手牌", false);
-            const deckAnchor = document.getElementById('deck-anchor').getBoundingClientRect();
+            showMessage("發牌中...", "正在準備卡牌", false);
+            const anchor = window.innerWidth < 768 ? 
+                document.getElementById('deck-anchor').getBoundingClientRect() : 
+                document.getElementById('deck-anchor-desktop').getBoundingClientRect();
+                
             const handContainer = document.getElementById('player-hand');
             handContainer.innerHTML = '';
             for (let i=0; i<4; i++) document.getElementById(`row-${i}`).innerHTML = '';
@@ -342,7 +376,7 @@
             });
             const handCards = handContainer.querySelectorAll('.card');
             for (let i = 0; i < handCards.length; i++) {
-                animateCardFlight(deckAnchor, handCards[i].getBoundingClientRect(), players[0].hand[i]);
+                animateCardFlight(anchor, handCards[i].getBoundingClientRect(), players[0].hand[i]);
                 await sleep(50);
                 handCards[i].classList.remove('opacity-0');
             }
@@ -353,7 +387,7 @@
                 const cardEl = createCardElement(cardObj);
                 cardEl.classList.add('opacity-0');
                 rowEl.appendChild(cardEl);
-                await animateCardFlight(deckAnchor, cardEl.getBoundingClientRect(), cardObj);
+                await animateCardFlight(anchor, cardEl.getBoundingClientRect(), cardObj);
                 cardEl.classList.remove('opacity-0');
             }
             updateRowsOrder();
@@ -365,8 +399,8 @@
             const sb = document.getElementById('scoreboard');
             sb.innerHTML = '';
             players.forEach(p => {
-                const colorClass = p.isHuman ? 'text-yellow-400 border-yellow-500' : 'text-gray-300 border-gray-600';
-                sb.innerHTML += `<div class="flex-shrink-0 flex flex-col items-center bg-gray-700 px-4 py-1 rounded-xl border ${colorClass}"><span class="text-[9px] font-bold">${p.name}</span><span class="text-sm font-black">${p.score}</span></div>`;
+                const colorClass = p.isHuman ? 'text-yellow-400 border-yellow-500 bg-yellow-500/10' : 'text-gray-300 border-gray-600 bg-gray-700/50';
+                sb.innerHTML += `<div class="flex-shrink-0 flex flex-col items-center px-2 py-0.5 md:px-3 md:py-1 rounded-lg border ${colorClass} min-w-[50px] md:min-w-[65px]"><span class="text-[8px] md:text-[9px] font-bold uppercase opacity-70">${p.name}</span><span class="text-xs md:text-sm font-black">${p.score}</span></div>`;
             });
         }
 
@@ -379,11 +413,13 @@
             const placeholder = document.createElement('div');
             placeholder.className = 'card-placeholder';
             staging.appendChild(placeholder);
+            
             isAnimating = true;
             cardEl.style.opacity = '0';
             await animateCardFlight(cardEl.getBoundingClientRect(), placeholder.getBoundingClientRect(), cardObj, true);
             cardEl.remove();
             staging.replaceChild(createCardElement(cardObj, true), placeholder);
+            staging.scrollLeft = staging.scrollWidth;
             isAnimating = false;
             processAITurns();
         }
@@ -391,7 +427,10 @@
         async function processAITurns() {
             isAnimating = true;
             const staging = document.getElementById('staging-area');
-            const deckAnchorRect = document.getElementById('deck-anchor').getBoundingClientRect();
+            const anchor = window.innerWidth < 768 ? 
+                document.getElementById('deck-anchor').getBoundingClientRect() : 
+                document.getElementById('deck-anchor-desktop').getBoundingClientRect();
+                
             for (let i = 1; i < totalPlayers; i++) {
                 const p = players[i];
                 const randIndex = Math.floor(Math.random() * p.hand.length);
@@ -399,9 +438,10 @@
                 const placeholder = document.createElement('div');
                 placeholder.className = 'card-placeholder';
                 staging.appendChild(placeholder);
-                animateCardFlight(deckAnchorRect, placeholder.getBoundingClientRect(), p.selectedCard, true);
+                animateCardFlight(anchor, placeholder.getBoundingClientRect(), p.selectedCard, true);
                 await sleep(150);
                 staging.replaceChild(createCardElement(p.selectedCard, true), placeholder);
+                staging.scrollLeft = staging.scrollWidth;
             }
             await sleep(500);
             await revealAndResolve();
@@ -413,12 +453,14 @@
             staging.innerHTML = '';
             for (let item of playedCards) {
                 const cEl = createCardElement(item.card);
-                cEl.innerHTML += `<div class="absolute -top-5 left-0 w-full text-center text-[9px] font-black uppercase ${item.player.isHuman ? 'text-yellow-400' : 'text-gray-400'}">${item.player.name}</div>`;
+                cEl.innerHTML += `<div class="absolute -top-7 left-0 w-full text-center text-[9px] font-black uppercase ${item.player.isHuman ? 'text-yellow-400' : 'text-gray-400'}">${item.player.name}</div>`;
                 staging.appendChild(cEl);
             }
+            staging.scrollLeft = 0;
             await sleep(1500);
             const stagingCards = staging.querySelectorAll('.card');
             for (let i = 0; i < playedCards.length; i++) {
+                stagingCards[i].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 await processSingleCard(playedCards[i].player, playedCards[i].card, stagingCards[i]);
                 await sleep(800);
             }
@@ -429,7 +471,7 @@
                 endRound();
             } else {
                 currentRound++;
-                document.getElementById('round-info').innerText = `進度: ${currentRound}/10 張牌`;
+                document.getElementById('round-info').innerText = `進度: ${currentRound}/10`;
             }
         }
 
@@ -491,9 +533,12 @@
             const rowCards = tableRows[rowIndex];
             player.score += rowCards.reduce((sum, c) => sum + c.bulls, 0);
             const rowDiv = document.getElementById(`row-${rowIndex}`);
-            const deckAnchorRect = document.getElementById('deck-anchor').getBoundingClientRect();
+            const anchor = window.innerWidth < 768 ? 
+                document.getElementById('deck-anchor').getBoundingClientRect() : 
+                document.getElementById('deck-anchor-desktop').getBoundingClientRect();
+                
             const cardElements = rowDiv.querySelectorAll('.card');
-            cardElements.forEach(el => animateCardFlight(el.getBoundingClientRect(), deckAnchorRect, {bulls:1, value:0}, true));
+            cardElements.forEach(el => animateCardFlight(el.getBoundingClientRect(), anchor, {bulls:1, value:0}, true));
             rowDiv.innerHTML = '';
             tableRows[rowIndex] = [];
             updateScoreboard();
@@ -517,11 +562,11 @@
             let resultHtml = `<div class="mt-4 space-y-2 text-left max-h-60 overflow-y-auto pr-2">`;
             sortedPlayers.forEach((p, i) => {
                 const isWinner = i === 0;
-                const highlightClass = isWinner ? 'text-yellow-400 font-bold border-yellow-500' : 'text-gray-300 border-gray-700';
+                const highlightClass = isWinner ? 'text-yellow-400 font-bold border-yellow-500 bg-yellow-500/10' : 'text-gray-300 border-gray-700 bg-gray-700/30';
                 resultHtml += `
-                    <div class="flex justify-between items-center p-2 rounded border ${highlightClass}">
+                    <div class="flex justify-between items-center p-2.5 rounded-xl border ${highlightClass}">
                         <span>${i + 1}. ${p.name} ${isWinner ? '👑' : ''}</span>
-                        <span>${p.score} 🐃</span>
+                        <span class="font-black">${p.score} 🐃</span>
                     </div>`;
             });
             resultHtml += "</div>";
