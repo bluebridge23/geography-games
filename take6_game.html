@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>誰是牛頭王 (Take 6!) - 單人遊玩版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&display=swap');
+
+        :root {
+            --card-h: clamp(55px, 11vh, 100px);
+            --card-w: calc(var(--card-h) * 0.7);
+        }
+
+        body {
+            font-family: 'Nunito', 'Microsoft JhengHei', sans-serif;
+            background-color: #1a202c;
+            color: #e2e8f0;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+
+        .card, .card-placeholder {
+            width: var(--card-w);
+            height: var(--card-h);
+            border-radius: 8px;
+            background-color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 4px;
+            user-select: none;
+            position: relative;
+            border: 2px solid #cbd5e0;
+            transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s;
+            flex-shrink: 0;
+        }
+
+        /* 標示每排最後一張牌 */
+        .card.last-card-in-row {
+            outline: 3px solid #fbbf24;
+            outline-offset: -3px;
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.6);
+            z-index: 10;
+        }
+
+        .card-placeholder {
+            border: 2px dashed #4a5568;
+            background-color: transparent;
+            box-shadow: none;
+        }
+
+        @media (min-width: 768px) {
+            .card, .card-placeholder { border-width: 3px; padding: 6px; }
+        }
+
+        .card.hidden-card {
+            background: repeating-linear-gradient(45deg, #4a5568, #4a5568 10px, #2d3748 10px, #2d3748 20px);
+            border-color: #718096;
+        }
+
+        .card.bull-1 { border-color: #9ca3af; }
+        .card.bull-1 .card-number { color: #4b5563; }
+        .card.bull-2 { border-color: #60a5fa; background-color: #eff6ff; }
+        .card.bull-2 .card-number { color: #1d4ed8; }
+        .card.bull-3 { border-color: #fcd34d; background-color: #fffbeb; }
+        .card.bull-3 .card-number { color: #b45309; }
+        .card.bull-5 { border-color: #f97316; background-color: #fff7ed; }
+        .card.bull-5 .card-number { color: #c2410c; }
+        .card.bull-7 { border-color: #ef4444; background-color: #fef2f2; }
+        .card.bull-7 .card-number { color: #b91c1c; }
+
+        .card-number {
+            font-size: clamp(1.2rem, 3vh, 2.2rem);
+            font-weight: 900;
+            text-align: center;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-bulls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-content: flex-end;
+            gap: 1px;
+            min-height: 15px;
+        }
+
+        .bull-icon { font-size: clamp(0.5rem, 1vh, 0.8rem); line-height: 1; }
+
+        .flying-card {
+            position: fixed;
+            z-index: 1000;
+            pointer-events: none;
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        #player-hand .card:hover:not(.disabled) {
+            transform: translateY(-15px) scale(1.05);
+            box-shadow: 0 15px 25px rgba(0,0,0,0.5);
+            border-color: #fbbf24;
+            z-index: 10;
+        }
+
+        .row-container {
+            transition: transform 0.3s ease; 
+            border: 2px dashed transparent;
+            border-radius: 12px;
+            padding: 6px;
+            min-height: calc(var(--card-h) + 16px);
+            background-color: rgba(255,255,255,0.03);
+            position: relative;
+            z-index: 1;
+        }
+
+        .row-selectable {
+            border-color: #fbbf24;
+            background-color: rgba(251, 191, 36, 0.2);
+            cursor: pointer;
+            animation: pulse 1.5s infinite;
+            z-index: 50;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5); }
+            70% { box-shadow: 0 0 0 15px rgba(251, 191, 36, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+        }
+
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        #msg-overlay { transition: opacity 0.3s ease; }
+        #msg-overlay.non-blocking { background-color: transparent; backdrop-filter: none; pointer-events: none; }
+        #msg-box { pointer-events: auto; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <div id="setup-screen" class="absolute inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-95">
+        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl text-center max-w-md w-full border border-gray-700">
+            <h1 class="text-4xl font-black mb-2 text-yellow-400">🐃 誰是牛頭王</h1>
+            <p class="text-gray-400 mb-8">一局定勝負：物理排序穩定版</p>
+            <div class="mb-6 text-left">
+                <label class="block text-gray-300 mb-2 font-bold">選擇遊玩人數：</label>
+                <select id="player-count" class="w-full bg-gray-700 text-white border border-gray-600 rounded-lg p-3 outline-none">
+                    <option value="2">2 人</option>
+                    <option value="3">3 人</option>
+                    <option value="4" selected>4 人</option>
+                    <option value="5">5 人</option>
+                    <option value="6">6 人</option>
+                    <option value="7">7 人</option>
+                    <option value="8">8 人</option>
+                    <option value="9">9 人</option>
+                    <option value="10">10 人</option>
+                </select>
+            </div>
+            <button onclick="startGame()" class="w-full bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-4 rounded-xl transition-all text-xl shadow-lg transform hover:scale-105">開始挑戰</button>
+        </div>
+    </div>
+
+    <div id="game-screen" class="hidden flex-1 flex flex-col h-full p-2 md:p-4 max-w-7xl mx-auto w-full relative overflow-y-auto">
+        <div class="flex justify-between items-center bg-gray-800 p-3 rounded-2xl mb-2 shadow-lg flex-shrink-0 border border-gray-700">
+            <div id="round-info" class="text-lg font-bold text-yellow-400">進度: 1/10 張牌</div>
+            <div id="scoreboard" class="flex gap-3 overflow-x-auto pb-1 flex-1 mx-4 scrollbar-hide"></div>
+            <div id="deck-anchor" class="w-10 h-14 bg-gray-700 rounded-lg border border-gray-600 flex items-center justify-center text-[10px] text-gray-400 relative flex-shrink-0">牌堆</div>
+        </div>
+
+        <div class="flex-1 flex flex-col lg:flex-row gap-4 my-auto relative min-h-0 py-4">
+            <div id="board-rows" class="flex-1 flex flex-col gap-3 overflow-x-auto pb-4 px-2 scrollbar-hide">
+                <div class="row-container flex gap-2 items-center w-max" id="row-0" onclick="handleRowSelect(0)"></div>
+                <div class="row-container flex gap-2 items-center w-max" id="row-1" onclick="handleRowSelect(1)"></div>
+                <div class="row-container flex gap-2 items-center w-max" id="row-2" onclick="handleRowSelect(2)"></div>
+                <div class="row-container flex gap-2 items-center w-max" id="row-3" onclick="handleRowSelect(3)"></div>
+            </div>
+
+            <div class="w-full lg:w-80 flex flex-col gap-3">
+                <div class="bg-blue-900 bg-opacity-20 rounded-xl p-3 border border-blue-500 border-opacity-30">
+                    <h3 class="text-xs font-bold text-blue-400 mb-1 text-center">💡 遊戲目標</h3>
+                    <p class="text-[11px] text-gray-400 leading-relaxed text-center">
+                        出完 10 張牌即結束，<br>
+                        收走最少牛頭（扣分最少）者獲勝！
+                    </p>
+                </div>
+
+                <div class="bg-black bg-opacity-20 rounded-2xl p-4 border border-gray-700 flex flex-col flex-1" id="staging-sidebar">
+                    <div class="flex justify-between items-center mb-3 px-1">
+                        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">準備區</span>
+                        <span id="staging-count" class="text-[10px] text-gray-600">等待中</span>
+                    </div>
+                    <!-- ★ 修改重點：增加垂直間距 gap-y-10 並加入頂部內邊距 pt-6 -->
+                    <div class="flex flex-wrap lg:grid lg:grid-cols-2 gap-x-3 gap-y-10 justify-center items-center content-start flex-1 min-h-[100px] pt-6" id="staging-area">
+                        <span class="text-gray-600 text-xs text-center col-span-2 py-4" id="staging-prompt">請從下方選牌...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-2 bg-gray-800 p-3 md:p-5 rounded-2xl shadow-2xl relative flex-shrink-0 border-t border-gray-700">
+            <div id="player-hand" class="flex flex-wrap justify-center gap-2" style="min-height: calc(var(--card-h) + 10px);"></div>
+        </div>
+    </div>
+
+    <div id="msg-overlay" class="fixed inset-0 flex items-center justify-center z-40 opacity-0 hidden bg-black bg-opacity-70 backdrop-blur-md">
+        <div class="bg-gray-800 border-2 border-yellow-500 p-8 rounded-3xl shadow-2xl text-center transform scale-90 transition-all max-w-xs md:max-w-md mx-4" id="msg-box">
+            <h2 id="msg-title" class="text-2xl font-black text-white mb-2">提示</h2>
+            <p id="msg-desc" class="text-base text-gray-300 mb-6"></p>
+            <button id="msg-btn" class="hidden bg-yellow-500 text-gray-900 font-bold py-3 px-10 rounded-xl text-lg hover:bg-yellow-400 shadow-lg">確定</button>
+        </div>
+    </div>
+
+    <script>
+        let totalPlayers = 4;
+        let deck = [];
+        let players = [];
+        let tableRows = [[], [], [], []];
+        let currentRound = 1;
+        let isAnimating = false;
+        let rowSelectionResolver = null;
+
+        const DECK_SIZE = 104;
+        const CARDS_PER_PLAYER = 10;
+
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+        function getBullheads(number) {
+            if (number === 55) return 7;
+            if (number % 11 === 0) return 5;
+            if (number % 10 === 0) return 3;
+            if (number % 5 === 0) return 2;
+            return 1;
+        }
+
+        function updateRowsOrder() {
+            const container = document.getElementById('board-rows');
+            const rowData = [];
+            for (let i = 0; i < 4; i++) {
+                const row = tableRows[i];
+                const lastVal = (row && row.length > 0) ? row[row.length - 1].value : -1;
+                rowData.push({ id: i, value: lastVal, element: document.getElementById(`row-${i}`) });
+            }
+            rowData.sort((a, b) => a.value - b.value);
+            rowData.forEach(item => {
+                container.appendChild(item.element);
+                const cards = item.element.querySelectorAll('.card');
+                cards.forEach(c => c.classList.remove('last-card-in-row'));
+                if (cards.length > 0) cards[cards.length - 1].classList.add('last-card-in-row');
+            });
+            void container.offsetHeight;
+        }
+
+        function createCardElement(cardObj, isHidden = false) {
+            const div = document.createElement('div');
+            div.className = `card ${isHidden ? 'hidden-card' : 'bull-' + cardObj.bulls}`;
+            div.dataset.value = cardObj.value;
+            if (!isHidden) {
+                let bullsHtml = '';
+                for(let i=0; i<cardObj.bulls; i++) bullsHtml += '<span class="bull-icon">🐃</span>';
+                div.innerHTML = `<div class="card-content flex flex-col h-full w-full"><div class="card-number">${cardObj.value}</div><div class="card-bulls pb-1">${bullsHtml}</div></div>`;
+            }
+            return div;
+        }
+
+        function animateCardFlight(sourceRect, targetRect, cardObj, isHidden = false) {
+            return new Promise(resolve => {
+                const flyingCard = createCardElement(cardObj, isHidden);
+                flyingCard.classList.add('flying-card');
+                Object.assign(flyingCard.style, {
+                    top: sourceRect.top + 'px', left: sourceRect.left + 'px',
+                    width: sourceRect.width + 'px', height: sourceRect.height + 'px'
+                });
+                document.body.appendChild(flyingCard);
+                flyingCard.offsetHeight;
+                Object.assign(flyingCard.style, {
+                    top: targetRect.top + 'px', left: targetRect.left + 'px',
+                    width: targetRect.width + 'px', height: targetRect.height + 'px'
+                });
+                setTimeout(() => { flyingCard.remove(); resolve(); }, 600);
+            });
+        }
+
+        async function startGame() {
+            totalPlayers = parseInt(document.getElementById('player-count').value);
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            initPlayers();
+            await startNewGameRound();
+        }
+
+        function initPlayers() {
+            players = [];
+            for (let i = 0; i < totalPlayers; i++) {
+                players.push({ id: i, name: i === 0 ? "你" : `電腦 ${i}`, isHuman: i === 0, hand: [], score: 0, selectedCard: null });
+            }
+            updateScoreboard();
+        }
+
+        async function startNewGameRound() {
+            currentRound = 1;
+            document.getElementById('round-info').innerText = `進度: ${currentRound}/10 張牌`;
+            tableRows = [[], [], [], []];
+            deck = [];
+            for (let i = 1; i <= DECK_SIZE; i++) deck.push({ value: i, bulls: getBullheads(i) });
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+            for (let i = 0; i < CARDS_PER_PLAYER; i++) {
+                for (let p = 0; p < totalPlayers; p++) players[p].hand.push(deck.pop());
+            }
+            players[0].hand.sort((a, b) => a.value - b.value);
+            let startCards = [deck.pop(), deck.pop(), deck.pop(), deck.pop()];
+            startCards.sort((a, b) => a.value - b.value);
+            for (let i = 0; i < 4; i++) tableRows[i] = [startCards[i]];
+            await renderInitialDeal();
+        }
+
+        async function renderInitialDeal() {
+            isAnimating = true;
+            showMessage("發牌中...", "洗牌並自動排序手牌", false);
+            const deckAnchor = document.getElementById('deck-anchor').getBoundingClientRect();
+            const handContainer = document.getElementById('player-hand');
+            handContainer.innerHTML = '';
+            for (let i=0; i<4; i++) document.getElementById(`row-${i}`).innerHTML = '';
+            document.getElementById('staging-area').innerHTML = '<span class="text-gray-600 text-xs text-center col-span-2 py-4" id="staging-prompt">請從下方選牌...</span>';
+            players[0].hand.forEach((cardObj) => {
+                const cardEl = createCardElement(cardObj);
+                cardEl.classList.add('opacity-0');
+                cardEl.onclick = () => selectCardFromHand(cardObj, cardEl);
+                handContainer.appendChild(cardEl);
+            });
+            const handCards = handContainer.querySelectorAll('.card');
+            for (let i = 0; i < handCards.length; i++) {
+                animateCardFlight(deckAnchor, handCards[i].getBoundingClientRect(), players[0].hand[i]);
+                await sleep(50);
+                handCards[i].classList.remove('opacity-0');
+            }
+            updateRowsOrder();
+            for (let i = 0; i < 4; i++) {
+                const rowEl = document.getElementById(`row-${i}`);
+                const cardObj = tableRows[i][0];
+                const cardEl = createCardElement(cardObj);
+                cardEl.classList.add('opacity-0');
+                rowEl.appendChild(cardEl);
+                await animateCardFlight(deckAnchor, cardEl.getBoundingClientRect(), cardObj);
+                cardEl.classList.remove('opacity-0');
+            }
+            updateRowsOrder();
+            hideMessage();
+            isAnimating = false;
+        }
+
+        function updateScoreboard() {
+            const sb = document.getElementById('scoreboard');
+            sb.innerHTML = '';
+            players.forEach(p => {
+                const colorClass = p.isHuman ? 'text-yellow-400 border-yellow-500' : 'text-gray-300 border-gray-600';
+                sb.innerHTML += `<div class="flex-shrink-0 flex flex-col items-center bg-gray-700 px-4 py-1 rounded-xl border ${colorClass}"><span class="text-[9px] font-bold">${p.name}</span><span class="text-sm font-black">${p.score}</span></div>`;
+            });
+        }
+
+        async function selectCardFromHand(cardObj, cardEl) {
+            if (isAnimating || players[0].selectedCard) return;
+            players[0].selectedCard = cardObj;
+            players[0].hand = players[0].hand.filter(c => c.value !== cardObj.value);
+            const staging = document.getElementById('staging-area');
+            document.getElementById('staging-prompt').style.display = 'none';
+            const placeholder = document.createElement('div');
+            placeholder.className = 'card-placeholder';
+            staging.appendChild(placeholder);
+            isAnimating = true;
+            cardEl.style.opacity = '0';
+            await animateCardFlight(cardEl.getBoundingClientRect(), placeholder.getBoundingClientRect(), cardObj, true);
+            cardEl.remove();
+            staging.replaceChild(createCardElement(cardObj, true), placeholder);
+            isAnimating = false;
+            processAITurns();
+        }
+
+        async function processAITurns() {
+            isAnimating = true;
+            const staging = document.getElementById('staging-area');
+            const deckAnchorRect = document.getElementById('deck-anchor').getBoundingClientRect();
+            for (let i = 1; i < totalPlayers; i++) {
+                const p = players[i];
+                const randIndex = Math.floor(Math.random() * p.hand.length);
+                p.selectedCard = p.hand.splice(randIndex, 1)[0];
+                const placeholder = document.createElement('div');
+                placeholder.className = 'card-placeholder';
+                staging.appendChild(placeholder);
+                animateCardFlight(deckAnchorRect, placeholder.getBoundingClientRect(), p.selectedCard, true);
+                await sleep(150);
+                staging.replaceChild(createCardElement(p.selectedCard, true), placeholder);
+            }
+            await sleep(500);
+            await revealAndResolve();
+        }
+
+        async function revealAndResolve() {
+            const staging = document.getElementById('staging-area');
+            let playedCards = players.map(p => ({ player: p, card: p.selectedCard })).sort((a, b) => a.card.value - b.card.value);
+            staging.innerHTML = '';
+            for (let item of playedCards) {
+                const cEl = createCardElement(item.card);
+                cEl.innerHTML += `<div class="absolute -top-5 left-0 w-full text-center text-[9px] font-black uppercase ${item.player.isHuman ? 'text-yellow-400' : 'text-gray-400'}">${item.player.name}</div>`;
+                staging.appendChild(cEl);
+            }
+            await sleep(1500);
+            const stagingCards = staging.querySelectorAll('.card');
+            for (let i = 0; i < playedCards.length; i++) {
+                await processSingleCard(playedCards[i].player, playedCards[i].card, stagingCards[i]);
+                await sleep(800);
+            }
+            players.forEach(p => p.selectedCard = null);
+            staging.innerHTML = '<span class="text-gray-600 text-xs text-center col-span-2 py-4" id="staging-prompt">請從下方選牌...</span>';
+            isAnimating = false;
+            if (players[0].hand.length === 0) {
+                endRound();
+            } else {
+                currentRound++;
+                document.getElementById('round-info').innerText = `進度: ${currentRound}/10 張牌`;
+            }
+        }
+
+        async function processSingleCard(player, cardObj, htmlElementInStaging) {
+            let targetRowIndex = -1;
+            let minDiff = Infinity;
+            for (let i = 0; i < 4; i++) {
+                const row = tableRows[i];
+                const lastCard = row[row.length - 1];
+                if (cardObj.value > lastCard.value) {
+                    const diff = cardObj.value - lastCard.value;
+                    if (diff < minDiff) { minDiff = diff; targetRowIndex = i; }
+                }
+            }
+            if (targetRowIndex === -1) {
+                targetRowIndex = await handleRuleB(player);
+                await takeRowPenalties(player, targetRowIndex);
+                tableRows[targetRowIndex] = [cardObj];
+                updateRowsOrder();
+                await animateCardToRow(htmlElementInStaging, cardObj, targetRowIndex);
+            } else {
+                if (tableRows[targetRowIndex].length === 5) {
+                    await takeRowPenalties(player, targetRowIndex);
+                    tableRows[targetRowIndex] = [cardObj];
+                    updateRowsOrder();
+                    await animateCardToRow(htmlElementInStaging, cardObj, targetRowIndex);
+                } else {
+                    tableRows[targetRowIndex].push(cardObj);
+                    updateRowsOrder();
+                    await animateCardToRow(htmlElementInStaging, cardObj, targetRowIndex);
+                }
+            }
+            updateRowsOrder();
+        }
+
+        async function handleRuleB(player) {
+            if (player.isHuman) {
+                showMessage("你的牌太小了！", "請點擊其中一列將其收走作為扣分。該卡將成為新的一排起頭。", false, null, true);
+                for (let i = 0; i < 4; i++) document.getElementById(`row-${i}`).classList.add('row-selectable');
+                const selectedRowIndex = await new Promise(resolve => { rowSelectionResolver = resolve; });
+                for (let i = 0; i < 4; i++) document.getElementById(`row-${i}`).classList.remove('row-selectable');
+                hideMessage();
+                return selectedRowIndex;
+            } else {
+                let minBulls = Infinity; let bestRow = 0;
+                for (let i = 0; i < 4; i++) {
+                    const rowBulls = tableRows[i].reduce((sum, c) => sum + c.bulls, 0);
+                    if (rowBulls < minBulls) { minBulls = rowBulls; bestRow = i; }
+                }
+                return bestRow;
+            }
+        }
+
+        function handleRowSelect(rowIndex) {
+            if (rowSelectionResolver) { rowSelectionResolver(rowIndex); rowSelectionResolver = null; }
+        }
+
+        async function takeRowPenalties(player, rowIndex) {
+            const rowCards = tableRows[rowIndex];
+            player.score += rowCards.reduce((sum, c) => sum + c.bulls, 0);
+            const rowDiv = document.getElementById(`row-${rowIndex}`);
+            const deckAnchorRect = document.getElementById('deck-anchor').getBoundingClientRect();
+            const cardElements = rowDiv.querySelectorAll('.card');
+            cardElements.forEach(el => animateCardFlight(el.getBoundingClientRect(), deckAnchorRect, {bulls:1, value:0}, true));
+            rowDiv.innerHTML = '';
+            tableRows[rowIndex] = [];
+            updateScoreboard();
+            await sleep(600);
+        }
+
+        async function animateCardToRow(sourceElement, cardObj, rowIndex) {
+            const rowDiv = document.getElementById(`row-${rowIndex}`);
+            const placeholder = createCardElement(cardObj);
+            placeholder.classList.add('opacity-0');
+            rowDiv.appendChild(placeholder);
+            const sourceRect = sourceElement.getBoundingClientRect();
+            const targetRect = placeholder.getBoundingClientRect();
+            sourceElement.remove();
+            await animateCardFlight(sourceRect, targetRect, cardObj);
+            placeholder.classList.remove('opacity-0');
+        }
+
+        async function endRound() {
+            const sortedPlayers = [...players].sort((a, b) => a.score - b.score);
+            let resultHtml = `<div class="mt-4 space-y-2 text-left max-h-60 overflow-y-auto pr-2">`;
+            sortedPlayers.forEach((p, i) => {
+                const isWinner = i === 0;
+                const highlightClass = isWinner ? 'text-yellow-400 font-bold border-yellow-500' : 'text-gray-300 border-gray-700';
+                resultHtml += `
+                    <div class="flex justify-between items-center p-2 rounded border ${highlightClass}">
+                        <span>${i + 1}. ${p.name} ${isWinner ? '👑' : ''}</span>
+                        <span>${p.score} 🐃</span>
+                    </div>`;
+            });
+            resultHtml += "</div>";
+            const userRank = sortedPlayers.findIndex(p => p.id === 0) + 1;
+            const title = userRank === 1 ? "太強了！你獲得了第一名 🎉" : `遊戲結束！你的排名是第 ${userRank} 名`;
+            showMessage(title, `10 張牌已出完，以下是本局結算：${resultHtml}`, true, () => location.reload());
+            document.getElementById('msg-btn').innerText = "再玩一次";
+        }
+
+        function showMessage(title, desc, showBtn = false, btnCallback = null, nonBlocking = false) {
+            const overlay = document.getElementById('msg-overlay');
+            document.getElementById('msg-title').innerHTML = title;
+            document.getElementById('msg-desc').innerHTML = desc;
+            const btn = document.getElementById('msg-btn');
+            btn.style.display = showBtn ? 'inline-block' : 'none';
+            if (showBtn) btn.onclick = btnCallback;
+            if (nonBlocking) overlay.classList.add('non-blocking');
+            else overlay.classList.remove('non-blocking');
+            overlay.classList.remove('hidden');
+            setTimeout(() => { overlay.classList.add('opacity-100'); document.getElementById('msg-box').classList.replace('scale-90', 'scale-100'); }, 10);
+        }
+
+        function hideMessage() {
+            const overlay = document.getElementById('msg-overlay');
+            overlay.classList.remove('opacity-100');
+            document.getElementById('msg-box').classList.replace('scale-100', 'scale-90');
+            setTimeout(() => { overlay.classList.add('hidden'); overlay.classList.remove('non-blocking'); }, 300);
+        }
+    </script>
+</body>
+</html>
